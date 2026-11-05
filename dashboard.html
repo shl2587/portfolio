@@ -1,0 +1,1660 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>금융 시계열 연구 대시보드 · 체험판</title>
+<style>
+/* 색 토큰 — 실제 서비스의 tokens.css와 같은 구성 */
+:root{
+  --bg:#0e1118; --surface:#141924; --surface2:#1a2030; --surface3:#222a3b; --line:#262d3d; --line2:#1d2331; --hover:#1b2232;
+  --ink:#e8ecf4; --ink2:#bac2d3; --muted:#8a93a8; --faint:#4d566b;
+  --brand:#7c9cff; --brand-weak:rgba(124,156,255,.14); --on-brand:#0e1118;
+  --ma1:#f4b740; --ma2:#a78bfa;
+  --st-queued:#8a93a8; --st-running:#5b9dff; --st-stopping:#f4b740; --st-stopped:#6d768a; --st-done:#2bb98a; --st-failed:#f0505a;
+  --ok:#2bb98a; --warn:#f4b740; --bad:#f0505a;
+  --kr-up:#f0505a; --kr-down:#3d7ef0; --gl-up:#2bb98a; --gl-down:#f0505a;
+  --chart-grid:#1c2231; --cross:#5a6480; --cross-label:#2a3350;
+  --dcard-bg:rgba(20,25,36,.88); --shadow:rgba(0,0,0,.45); --scrim:rgba(0,0,0,.45);
+  --opt-bg:#1d2433; --opt-line:#2c3448; --opt-ink:#c3cbdd;
+  --err-ink:#ffb8bc; --err-bg:rgba(240,80,90,.1);
+  --mono:ui-monospace,"JetBrains Mono","Consolas",monospace;
+  --sans:"Pretendard","Malgun Gothic","맑은 고딕",-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#f4f6fa; --surface:#ffffff; --surface2:#f2f4f9; --surface3:#e7ebf3; --line:#dde2ec; --line2:#ebeef4; --hover:#eef1f7;
+  --ink:#141a26; --ink2:#3b4558; --muted:#6b7489; --faint:#a2a9b8;
+  --brand:#4565e8; --brand-weak:rgba(69,101,232,.10); --on-brand:#ffffff;
+  --ma1:#d9921a; --ma2:#7b5ce0;
+  --st-queued:#6b7489; --st-running:#2f74e8; --st-stopping:#c98510; --st-stopped:#8a93a6; --st-done:#11a06f; --st-failed:#e0404b;
+  --ok:#11a06f; --warn:#c98510; --bad:#e0404b;
+  --kr-up:#e0404b; --kr-down:#2f6fe0; --gl-up:#11a06f; --gl-down:#e0404b;
+  --chart-grid:#eef1f6; --cross:#9aa3b5; --cross-label:#3b4558;
+  --dcard-bg:rgba(255,255,255,.94); --shadow:rgba(20,26,38,.14); --scrim:rgba(20,26,38,.28);
+  --opt-bg:#f2f4f9; --opt-line:#d7dde9; --opt-ink:#3b4558;
+  --err-ink:#a8232e; --err-bg:rgba(224,64,75,.07);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:13px/1.45 var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.sp{flex:1}
+.hide{display:none !important}
+
+/* 데모 안내 띠 */
+.demobar{position:fixed;inset:0 0 auto 0;height:28px;z-index:60;display:flex;align-items:center;gap:9px;
+  padding:0 13px;background:var(--brand);color:var(--on-brand);font-size:11.5px;font-weight:600}
+.demobar .tag{background:rgba(255,255,255,.22);border-radius:5px;padding:1px 6px}
+.app{display:flex;height:100vh;padding-top:28px}
+
+/* ---------- 사이드 메뉴 ---------- */
+.side{width:234px;flex:none;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;transition:width .18s}
+.side.collapsed{width:66px}
+.side.collapsed .navtxt,.side.collapsed .slabel,.side.collapsed .wl,.side.collapsed .sfoot .ft,.side.collapsed .brandtxt,.side.collapsed .navcaret,.side.collapsed .navsubs{display:none}
+.brand{display:flex;align-items:center;gap:10px;padding:14px 15px 12px;border-bottom:1px solid var(--line2);min-height:60px}
+.brand .mk{width:30px;height:30px;border-radius:9px;background:var(--brand-weak);display:grid;place-items:center;color:var(--brand);flex:none}
+.brand .nm{font-weight:700;font-size:14px;letter-spacing:-.01em;white-space:nowrap}
+.brand .sb{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.colbtn{margin-left:auto;width:25px;height:25px;border-radius:6px;color:var(--muted);display:grid;place-items:center;flex:none}
+.colbtn:hover{background:var(--hover);color:var(--ink)}
+.side.collapsed .colbtn{margin:0}
+.side.collapsed .colbtn svg{transform:rotate(180deg)}
+.side.collapsed .brand{flex-direction:column;padding:12px 0 8px;gap:7px}
+.slabel{font-size:10.5px;font-weight:600;color:var(--faint);letter-spacing:.08em;padding:14px 17px 5px}
+.navs{padding:0 9px;display:flex;flex-direction:column;gap:2px}
+.navi{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;color:var(--ink2);width:100%;text-align:left;font-size:13px}
+.navi:hover{background:var(--hover);color:var(--ink)}
+.navi.on{background:var(--brand-weak);color:var(--brand);font-weight:650}
+.navi svg{width:17px;height:17px;flex:none}
+.navcaret{margin-left:auto;display:inline-flex;color:var(--muted);transform:rotate(90deg);transition:transform .15s}
+.navgroup.open .navcaret{transform:rotate(-90deg)}
+.navsubs{display:flex;flex-direction:column;gap:2px;margin:2px 0 2px 16px;padding-left:9px;border-left:1px solid var(--line)}
+.navsubs[hidden]{display:none}
+.navsub{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:8px;color:var(--muted);font-size:12.5px;width:100%;text-align:left}
+.navsub:hover{background:var(--hover);color:var(--ink)}
+.navsub.on{color:var(--brand);font-weight:650;background:var(--brand-weak)}
+.navsub svg{width:14px;height:14px;flex:none}
+.navbadge{margin-left:auto;background:var(--st-running);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;font-weight:700}
+.svcdot{width:6px;height:6px;border-radius:50%;background:var(--ok);margin-left:auto;flex:none}
+.wl{padding:0 9px;overflow:auto;flex:1;min-height:60px}
+.wlsearch{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 8px;margin-bottom:6px}
+.wlsearch input{background:none;border:0;outline:none;width:100%;font-size:12px}
+.wlsearch svg{width:13px;height:13px;color:var(--faint);flex:none}
+.wli{display:grid;grid-template-columns:1fr auto;gap:1px 8px;width:100%;text-align:left;padding:6px 8px;border-radius:9px}
+.wli:hover{background:var(--hover)}
+.wli.on{background:var(--surface2)}
+.wli .s{font-weight:650;font-size:12.5px}
+.wli .p{font-family:var(--mono);font-size:12.5px}
+.wli .n{font-size:10.5px;color:var(--muted)}
+.wli .c{font-family:var(--mono);font-size:10.5px;text-align:right}
+.wlempty{padding:14px 8px;text-align:center;color:var(--muted);font-size:12px}
+.sfoot{padding:9px 13px 11px;border-top:1px solid var(--line2);display:flex;flex-direction:column;gap:7px}
+.themeseg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.themeseg button{flex:1;height:25px;border-radius:7px;color:var(--muted);display:grid;place-items:center}
+.themeseg button.on{background:var(--surface3);color:var(--ink)}
+.themeseg svg{width:14px;height:14px}
+.conn{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);cursor:pointer;width:100%}
+.conn .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+.conn.off .dot{background:var(--warn)}
+.me{display:flex;align-items:center;gap:7px;font-size:12px}
+.me .lv{font-size:9.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+.lnk{color:var(--brand);background:none;border:0;padding:0;font-size:11.5px;text-align:left}
+.lnk:hover{text-decoration:underline}
+.ft{font-size:11px;color:var(--muted);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.ver{font-size:10.5px;color:var(--faint)}
+
+/* ---------- 본문 ---------- */
+.view{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.page{flex:1;min-height:0;display:flex;flex-direction:column;padding:15px 19px 13px;gap:11px;overflow-y:auto}
+h1{margin:0;font-size:21px;font-weight:700;letter-spacing:-.02em}
+h2{margin:0;font-size:13px;font-weight:650}
+.crumb{font-size:11.5px;color:var(--muted);margin-bottom:3px}
+.crumb a{color:var(--muted);cursor:pointer}
+.crumb a:hover{color:var(--brand)}
+.sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.rhead{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}
+.card>.hd{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.card>.hd .sub{margin:0;font-size:11.5px}
+.card>.bd{padding:11px 14px}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:11px}
+.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+@media (max-width:1150px){.s3{grid-column:span 6}.s4,.s5,.s6,.s7,.s8{grid-column:span 12}}
+.kpi{padding:13px 14px}
+.kpi .l{font-size:11.5px;color:var(--muted)}
+.kpi .v{font-size:24px;font-weight:650;font-family:var(--mono);margin-top:3px;letter-spacing:-.02em}
+.kpi .v small{font-size:13px;color:var(--muted);font-weight:500}
+.kpi .s{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);color:var(--ink2);display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-queued{color:var(--st-queued);background:color-mix(in srgb,var(--st-queued) 14%,transparent)}
+.st-running{color:var(--st-running);background:color-mix(in srgb,var(--st-running) 14%,transparent)}
+.st-stopping{color:var(--st-stopping);background:color-mix(in srgb,var(--st-stopping) 14%,transparent)}
+.st-stopped{color:var(--st-stopped);background:color-mix(in srgb,var(--st-stopped) 16%,transparent)}
+.st-done{color:var(--st-done);background:color-mix(in srgb,var(--st-done) 14%,transparent)}
+.st-failed{color:var(--st-failed);background:color-mix(in srgb,var(--st-failed) 14%,transparent)}
+.primary{height:33px;padding:0 13px;border-radius:9px;background:var(--brand);color:var(--on-brand);font-weight:650;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.primary:hover:not(:disabled){filter:brightness(1.08)}
+.ghost{height:29px;padding:0 11px;border-radius:8px;border:1px solid var(--line);color:var(--ink2);display:inline-flex;align-items:center;gap:6px}
+.ghost:hover:not(:disabled){border-color:var(--faint);color:var(--ink)}
+.ghost.sm{height:25px;padding:0 9px;font-size:12px}
+.ghost.danger:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
+.ghost.on{border-color:var(--ok);color:var(--ok)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{height:27px;padding:0 11px;border-radius:7px;color:var(--muted);font-size:12.5px;white-space:nowrap;border:1px solid transparent}
+.seg button:hover{color:var(--ink);background:var(--hover)}
+.seg button.on{background:var(--surface3);color:var(--ink);font-weight:650;border-color:var(--opt-line);box-shadow:0 1px 2px var(--shadow)}
+.seg button .c{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:5px}
+.opt{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:7px;font-size:11px;font-weight:600;
+  background:var(--opt-bg);border:1px solid var(--opt-line);color:var(--opt-ink)}
+.opt.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);border-color:color-mix(in srgb,var(--ok) 36%,transparent);color:var(--ok)}
+.opt.off{background:transparent;border-color:var(--line);color:var(--muted);font-weight:500}
+.toggle{width:30px;height:18px;border-radius:9px;background:var(--surface3);position:relative;flex:none;border:1px solid var(--line)}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:left .15s}
+.toggle.on{background:var(--brand-weak);border-color:var(--brand)}
+.toggle.on::after{left:14px;background:var(--brand)}
+table{width:100%;border-collapse:collapse}
+.tablewrap{overflow:auto;max-height:420px}
+th{position:sticky;top:0;z-index:1;background:var(--surface);font-size:10.5px;font-weight:600;color:var(--muted);text-align:right;padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.l,td.l{text-align:left}
+th.sortable{cursor:pointer;user-select:none}
+th .ar{color:var(--brand)}
+td{padding:8px 9px;border-bottom:1px solid var(--line2);text-align:right;font-family:var(--mono);font-size:12px;white-space:nowrap}
+td.txt{font-family:var(--sans)}
+td.nm{font-family:var(--sans);font-weight:650;text-align:left}
+td .sub{display:block;font-family:var(--mono);font-weight:400;font-size:10.5px;color:var(--muted);margin:0}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--hover)}
+tbody tr.sel td{background:var(--brand-weak)}
+tr.sub-row td{background:var(--surface2)}
+td.best,.cmptab td.best{color:var(--ink);font-weight:700}
+.empty{padding:24px 14px;text-align:center;color:var(--muted);font-size:12.5px}
+.empty.tight{padding:6px 14px 12px}
+.note{font-size:11.5px;color:var(--muted);padding:9px 0 2px}
+.note code{font:11.5px var(--mono);background:var(--surface2);border:1px solid var(--line2);border-radius:5px;padding:1px 5px}
+.err{background:var(--err-bg);border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);color:var(--err-ink);border-radius:10px;padding:9px 11px;font-size:12px}
+.err.mono{font-family:var(--mono);font-size:11.5px;word-break:break-word}
+.okline{background:color-mix(in srgb,var(--ok) 10%,transparent);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent);color:var(--ink2);border-radius:10px;padding:9px 11px;font-size:12px}
+.warnband{padding:9px 11px;border-radius:10px;font-size:12px;color:var(--ink);background:color-mix(in srgb,var(--warn) 14%,transparent);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand)}
+.field textarea{font-family:var(--mono);font-size:12px;resize:vertical}
+.field .hint{font-size:11px;color:var(--faint)}
+.field .ferr{font-size:11.5px;color:var(--bad)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.fgrid .full{grid-column:1/-1}
+
+/* 차트 */
+.phead{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.ident .t1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ident .sym{font-size:21px;font-weight:700;letter-spacing:-.02em}
+.quote{margin-left:auto;text-align:right}
+.quote .px{font-family:var(--mono);font-size:26px;font-weight:650;line-height:1.1}
+.quote .chg{font-family:var(--mono);font-size:12.5px;margin-top:2px}
+.quote .upd{font-size:11px;color:var(--muted);margin-top:2px}
+.controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.ccard{flex:1;min-height:400px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.chartbox{flex:1;min-height:0;position:relative}
+#chart{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+.dcard{position:absolute;left:11px;top:11px;pointer-events:none;background:var(--dcard-bg);border:1px solid var(--line);
+  border-radius:10px;padding:8px 11px;min-width:205px;backdrop-filter:blur(4px);font-size:11.5px}
+.dcard .dt{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.dcard .g{display:grid;grid-template-columns:auto auto auto auto;gap:2px 9px;margin-top:5px;align-items:baseline}
+.dcard .g span{color:var(--muted);font-size:10.5px}
+.dcard .g b{font-family:var(--mono);font-weight:500;text-align:right}
+.cfoot{height:29px;flex:none;display:flex;align-items:center;gap:9px;padding:0 12px;border-top:1px solid var(--line2);font-size:11px;color:var(--muted)}
+
+/* 학습 상세 · 비교 */
+.ex-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid var(--line2)}
+.ex-search{position:relative}
+.ex-search svg{position:absolute;left:9px;top:8px;width:13px;height:13px;color:var(--faint)}
+.ex-search input{width:200px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px 6px 28px;outline:none;font-size:12.5px}
+.ex-split{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;padding:4px 14px 16px}
+@media (max-width:1100px){.ex-split{grid-template-columns:minmax(0,1fr)}}
+.ex-sec{font-size:10.5px;color:var(--muted);letter-spacing:.06em;margin:14px 0 7px;font-weight:600}
+.ex-loss{height:150px;background:var(--surface2);border:1px solid var(--line2);border-radius:10px;padding:8px}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.mgrid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mbox{background:var(--surface2);border:1px solid var(--line2);border-radius:10px;padding:7px 9px;min-width:0}
+.mbox .k{font-size:10.5px;color:var(--muted)}
+.mbox .v{font-family:var(--mono);font-size:12.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+.mtab td{padding:6px 9px}
+.mtab td:last-child{text-align:right}
+pre.cfg{margin:0;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-family:var(--mono);font-size:11.5px;color:var(--ink2);overflow:auto;max-height:190px}
+.cmp{border-top:1px solid var(--line);padding:11px 14px}
+.cmphd{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.cmptab td,.cmptab th{padding:6px 8px;text-align:right;font-family:var(--mono);white-space:nowrap;position:static}
+.cmptab th{color:var(--muted);font-weight:600;font-family:var(--sans);font-size:10.5px}
+.cmptab th:first-child,.cmptab td:first-child{text-align:left;font-family:var(--sans);color:var(--muted)}
+.cmptab tr.sec td{color:var(--faint);font:600 10px var(--sans);letter-spacing:.06em;padding-top:11px;border-bottom:0}
+.sw2{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.evl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.evl li{display:grid;grid-template-columns:7px 112px 1fr;gap:9px;align-items:center;font-size:11.5px}
+.evl .t{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.evl .d{color:var(--ink2)}
+.legendrow{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted);padding:2px 14px 11px}
+.legendrow span{display:inline-flex;align-items:center;gap:6px}
+.legendrow i{width:10px;height:10px;border-radius:3px}
+
+/* 수집 · 모듈 */
+.run{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line2)}
+.run:last-child{border-bottom:0}
+.run .nm{font-weight:650;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.run .meta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.prog{height:5px;border-radius:3px;background:var(--surface3);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--brand)}
+.log{max-height:280px;overflow:auto}
+.lrow{display:grid;grid-template-columns:44px 58px 1fr;gap:8px;align-items:baseline;padding:6px 14px;border-bottom:1px solid var(--line2);font-size:11.5px}
+.lrow .t{font-family:var(--mono);color:var(--muted)}
+.lrow .d{color:var(--ink2);min-width:0;overflow-wrap:anywhere}
+.logbox{font-family:var(--mono);font-size:11.5px;color:var(--ink2);background:var(--bg);border-top:1px solid var(--line2);padding:9px 13px;max-height:220px;overflow:auto;white-space:pre-wrap}
+.fresh{display:grid;grid-template-columns:92px 1fr auto;gap:9px;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid var(--line2)}
+.fresh:last-child{border-bottom:0}
+.fresh .sym{font-weight:650}
+.bars{display:flex;align-items:flex-end;gap:3px;height:64px;margin-top:6px}
+.bars i{flex:1;background:var(--brand);border-radius:2px 2px 0 0;min-height:2px;opacity:.85;cursor:pointer}
+.bars i:hover{opacity:1}
+.bars i.bad{background:var(--bad)}
+.browse{display:flex;align-items:stretch;border-top:1px solid var(--line2);min-height:300px}
+.groups{width:198px;flex:none;border-right:1px solid var(--line2);padding:8px;overflow:auto;max-height:420px}
+.groups button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border-radius:7px;padding:6px 8px;color:var(--ink2);font-size:12.5px}
+.groups button:hover{background:var(--surface2)}
+.groups button.on{background:var(--surface2);color:var(--ink);font-weight:650}
+.groups .c{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.groups .lv1{padding-left:6px}.groups .lv2{padding-left:18px}.groups .lv3{padding-left:32px;font-size:12px;color:var(--muted)}
+.tw{display:inline-block;width:11px;font-size:9px;color:var(--faint);line-height:1}
+.browse>.tablewrap{flex:1;min-width:0;max-height:420px}
+.steps{margin:0 0 9px;padding-left:19px;font-size:12px;color:var(--ink2);display:flex;flex-direction:column;gap:4px}
+
+/* 모달 */
+.modalwrap{position:fixed;inset:0;background:var(--scrim);z-index:70;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{width:540px;max-width:95vw;max-height:88vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px var(--shadow)}
+.modal.wide{width:680px}
+.modal .mh{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal .mh h2{flex:1;font-size:14.5px}
+.modal .mb{padding:14px 18px}
+.modal .mf{display:flex;justify-content:flex-end;gap:8px;padding:11px 18px 14px;border-top:1px solid var(--line2)}
+.x{width:28px;height:28px;border-radius:8px;color:var(--muted);display:grid;place-items:center}
+.x:hover{background:var(--hover);color:var(--ink)}
+.notice p{margin:0 0 9px;color:var(--ink2);line-height:1.6;font-size:12.5px}
+.notice pre{margin:0 0 9px;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-family:var(--mono);font-size:11.5px;white-space:pre-wrap}
+
+/* 로그인 */
+.auth{flex:1;display:grid;place-items:center;background:var(--bg)}
+.authbox{width:360px;max-width:92vw;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 24px;box-shadow:0 18px 50px var(--shadow)}
+.authbox .bt{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.authbox h1{font-size:18px}
+.authbox .field+.field{margin-top:11px}
+.authbox .primary{width:100%;margin-top:16px;height:38px}
+.placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted)}
+.placeholder h1{font-size:18px;color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <span class="tag">체험판</span>
+  <span>실제 서비스의 화면과 조작을 그대로 옮겼습니다. 숫자는 <b>예시 데이터</b>이고 서버에 연결하지 않습니다. 관리 메뉴는 뺐습니다.</span>
+  <span class="sp"></span>
+  <span id="demohint" style="opacity:.85"></span>
+</div>
+
+<div class="app" id="app"></div>
+<div id="modalhost"></div>
+
+<script>
+'use strict'
+/* =====================================================================
+ * 금융 시계열 연구 대시보드 — 체험판 (서버 없이 도는 한 파일)
+ * 화면: 로그인 · 마켓 차트 · 연구 개요 · 학습 · 학습 모듈 · 데이터 · 데이터 모듈 · 백테스트 · 논문
+ * 숫자는 씨앗을 받는 생성기로 만든 예시 데이터. 계산식은 실제 서비스와 같다.
+ * =================================================================== */
+
+/* ---------- 작은 도구 ---------- */
+const $ = s => document.querySelector(s)
+const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]))
+function rng(seed){ let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) }
+const pad = n => String(n).padStart(2, '0')
+const nf = (v, d = 0) => v == null || !isFinite(v) ? '—' : v.toLocaleString('en-US', { minimumFractionDigits:d, maximumFractionDigits:d })
+const signed = (v, d) => (v >= 0 ? '+' : '−') + nf(Math.abs(v), d)
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
+function fmtVol(v){ return v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : String(Math.round(v)) }
+function fmtDur(sec){
+  if (sec == null) return '—'
+  const s = Math.max(0, Math.floor(sec))
+  if (s < 60) return s + '초'
+  if (s < 3600) return Math.floor(s/60) + '분'
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60)
+  return m ? `${h}시간 ${m}분` : `${h}시간`
+}
+function fmtDT(sec){ const d = new Date(sec*1000); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
+function fmtMD(sec){ const d = new Date(sec*1000); return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
+function fmtAgo(sec, now = NOW){
+  const s = Math.max(0, Math.floor(now - sec))
+  if (s < 60) return s + '초 전'
+  if (s < 3600) return Math.floor(s/60) + '분 전'
+  if (s < 86400) return Math.floor(s/3600) + '시간 전'
+  return Math.floor(s/86400) + '일 전'
+}
+function fmtMetric(v){
+  if (v == null) return '—'
+  if (typeof v !== 'number') return String(v)
+  if (Number.isInteger(v)) return v.toLocaleString('en-US')
+  return Math.abs(v) < 1 ? v.toFixed(4) : v.toLocaleString('en-US', { maximumFractionDigits:4 })
+}
+/* 낮을수록 좋은 지표인지 — 실제 서비스와 같은 임시 가정 */
+const lowerIsBetter = k => /loss|mae|rmse|mse|mape|error|err$/i.test(k)
+
+const NOW = Date.UTC(2026, 10, 5, 12, 24, 0) / 1000   // 고정된 "지금" — 열 때마다 같은 그림
+
+/* ---------- 데이터 ---------- */
+const SYMBOLS = [
+  { symbol:'005930.KS', name:'삼성전자',     exchange:'KOSPI',    country:'KR', kr:true,  last:229000, vol:0.016, digits:0, seed:11, mode:'batch' },
+  { symbol:'AAPL',      name:'Apple',        exchange:'NASDAQ',   country:'US', kr:false, last:338.32, vol:0.013, digits:2, seed:23, mode:'realtime' },
+  { symbol:'NVDA',      name:'NVIDIA',       exchange:'NASDAQ',   country:'US', kr:false, last:202.06, vol:0.022, digits:2, seed:37, mode:'realtime' },
+  { symbol:'SPY',       name:'S&P 500 ETF',  exchange:'NYSEARCA', country:'US', kr:false, last:681.40, vol:0.009, digits:2, seed:41, mode:'realtime' },
+  { symbol:'TSLA',      name:'Tesla',        exchange:'NASDAQ',   country:'US', kr:false, last:415.80, vol:0.028, digits:2, seed:53, mode:'batch' },
+  { symbol:'A',         name:'Agilent',      exchange:'NYSE',     country:'US', kr:false, last:142.10, vol:0.011, digits:2, seed:67, mode:'batch' },
+]
+const TIMEFRAMES = [
+  { code:'1m', label:'1분', unit:1, sec:60 }, { code:'5m', label:'5분', unit:5, sec:300 },
+  { code:'15m', label:'15분', unit:15, sec:900 }, { code:'1h', label:'1시간', unit:60, sec:3600 },
+  { code:'4h', label:'4시간', unit:240, sec:14400 }, { code:'1d', label:'일', unit:390, sec:86400 },
+  { code:'1w', label:'주', unit:1950, sec:604800 },
+]
+const MODELS = ['lstm', 'gru', 'tft', 'cnn-lstm']
+const WORKERS = ['worker-01', 'worker-02', 'worker-03']
+
+/* 학습 — 상태별로 골고루 */
+const EXPERIMENTS = (() => {
+  const r = rng(90210)
+  const specs = [
+    ['lstm-spy-15m-v5','lstm','SPY','15m','running',0.68], ['gru-tsla-1h-v1','gru','TSLA','1h','running',0.31],
+    ['tft-aapl-1d-v2','tft','AAPL','1d','queued',0], ['lstm-spy-15m-v3','lstm','SPY','15m','done'],
+    ['gru-nvda-1h-v2','gru','NVDA','1h','done'], ['tft-005930-1d-v1','tft','005930.KS','1d','done'],
+    ['cnn-aapl-5m-v4','cnn-lstm','AAPL','5m','done'], ['lstm-nvda-15m-v2','lstm','NVDA','15m','done'],
+    ['gru-spy-1d-v1','gru','SPY','1d','done'], ['tft-tsla-1h-v3','tft','TSLA','1h','done'],
+    ['lstm-aapl-1h-v1','lstm','AAPL','1h','failed'], ['cnn-005930-15m-v1','cnn-lstm','005930.KS','15m','stopped'],
+    ['gru-a-1d-v1','gru','A','1d','done'], ['lstm-tsla-5m-v2','lstm','TSLA','5m','done'],
+  ]
+  return specs.map(([name, model, symbol, tf, status, prog], i) => {
+    const created = NOW - (i * 9500 + 1800 + Math.floor(r() * 5000))
+    const started = status === 'queued' ? null : created + 120 + Math.floor(r() * 400)
+    const dur = 1800 + Math.floor(r() * 9000)
+    const finished = (status === 'done' || status === 'failed' || status === 'stopped') ? started + dur : null
+    const done = status === 'done'
+    return {
+      id: 'exp-' + (1000 + i * 37).toString(16) + 'c4d',
+      name, modelType: model, symbol, timeframe: tf, status,
+      progress: prog ?? 0,
+      workerId: status === 'queued' ? null : WORKERS[i % WORKERS.length],
+      createdAt: created, startedAt: started, finishedAt: finished,
+      trainFrom: '2024-01-01', trainTo: '2026-09-30',
+      dataRows: 120000 + Math.floor(r() * 90000),
+      checkpointPath: done ? `checkpoints/${name}/best.ckpt` : null,
+      error: status === 'failed' ? 'RuntimeError: CUDA out of memory. Tried to allocate 1.52 GiB (GPU 0; 23.70 GiB total capacity)' : null,
+      finalMetrics: done ? {
+        test_auc: 0.55 + r() * 0.1,
+        test_direction_acc: 0.52 + r() * 0.07,
+        val_loss: 0.018 + r() * 0.012,
+        train_loss: 0.012 + r() * 0.01,
+      } : null,
+      config: {
+        seq_len: [32, 64, 128][i % 3], hidden: [64, 128, 256][i % 3], layers: 2 + (i % 2),
+        dropout: Math.round((0.1 + (i % 3) * 0.05) * 100) / 100, lr: [1e-3, 5e-4, 2e-4][i % 3], batch_size: [64, 128][i % 2],
+        epochs: 40, early_stop: 8, features: ['close', 'volume', 'ma20', 'rsi14'],
+      },
+      loss: Array.from({ length: 40 }, (_, k) => 0.09 * Math.exp(-k / 11) + 0.015 + r() * 0.004),
+    }
+  })
+})()
+const METRIC_KEYS = ['test_auc', 'test_direction_acc', 'val_loss', 'train_loss']
+
+/* 수집 기록 · 날짜별 집계 */
+const DAY_STATS = (() => {
+  const r = rng(2026110501)
+  return Array.from({ length: 30 }, (_, i) => {
+    const total = Math.round(3800 + r() * 1500)
+    const fail = i > 26 ? Math.round(total * (0.24 + r() * 0.2)) : (r() < 0.1 ? Math.round(total * 0.04) : 0)
+    return { day: NOW - (29 - i) * 86400, total, fail, rows: Math.round((total - fail) * 0.48) }
+  })
+})()
+const RUNS = (() => {
+  const r = rng(515)
+  return Array.from({ length: 40 }, (_, i) => {
+    const s = SYMBOLS[i % SYMBOLS.length]
+    const tf = ['1m', '5m', '15m', '1h'][Math.floor(r() * 4)]
+    const started = NOW - i * 620 - Math.floor(r() * 180)
+    const failed = r() < 0.22
+    return {
+      id: i, symbol: s.symbol, timeframe: tf, startedAt: started,
+      status: failed ? 'failed' : 'done', took: 0.4 + r() * 2.2,
+      from: started - 600, to: started, rows: failed ? 0 : Math.round(r() * 60),
+      error: failed ? 'DNSError: Failed to perform, curl: (6) Could not resolve host: ●●●●●●●●●●●●' : null,
+    }
+  })
+})()
+const MODULE_VERSIONS = [
+  { v:'0.10.0', installed:true, active:true, file:'yf-collector-0.10.0.zip', size:'27.5KB', hash:'f8617e7594dd2c1a', by:'관리자', at: NOW - 11 * 86400 },
+  { v:'0.9.0',  installed:true, active:false, file:'yf-collector-0.9.0.zip',  size:'27.3KB', hash:'446072ca89d6b310', by:'관리자', at: NOW - 11 * 86400 - 4000 },
+  { v:'0.8.0',  installed:true, active:false, file:'yf-collector-0.8.0.zip',  size:'27.2KB', hash:'115dd29aefa1778e', by:'관리자', at: NOW - 12 * 86400 },
+  { v:'0.7.1',  installed:true, active:false, file:'yf-collector-0.7.1.zip',  size:'26.9KB', hash:'9c20bb7731ee0a55', by:'관리자', at: NOW - 13 * 86400 },
+  { v:'0.7.0',  installed:false, active:false, file:'yf-collector-0.7.0.zip', size:'26.8KB', hash:'3ad5f1c0b8e27419', by:'관리자', at: NOW - 14 * 86400 },
+]
+const MODULE_LOG = [
+  '[21:15:02] batch 5m x6 started', '[21:15:03] 005930.KS 5m → 0 rows (market closed)',
+  '[21:15:04] AAPL 5m → 0 rows (market closed)', '[21:15:05] NVDA 5m → 0 rows (market closed)',
+  '[21:15:06] ERROR DNSError: Failed to perform, curl: (6) Could not resolve host: ●●●●●●●●●●●●',
+  '[21:15:06] batch 5m x6 failed (exit 1: some symbols failed)',
+  '[21:16:01] realtime 1m tick → skipped (no open market)',
+].join('\n')
+
+/* ---------- 상태 ---------- */
+const state = {
+  route: '#/chart',
+  authed: true,
+  symbol: '005930.KS', tf: '1d',
+  scheme: 'kr', theme: 'dark',
+  zoom: 120, offset: 0, hover: null,
+  collapsed: false,
+  navOpen: { data:false, experiments:false },
+  wlQuery: '',
+  realtime: true,
+  range: 7,
+  exFilter: 'all', exQuery: '', exSort: { key:'createdAt', desc:true },
+  exSelected: null, exPicked: [],
+  covOpen: {},
+  modStatus: 'error',      // running · stopped · error
+  modVersion: '0.10.0',
+  schedule: { realtime:'1분', batch:'07:00', tz:'Asia/Seoul' },
+  targets: Object.fromEntries(SYMBOLS.map(s => [s.symbol, true])),
+  treeOpen: { KR:true, US:true },
+  myModule: { installed:false, enabled:false },
+  extra: [],   // 체험판에서 만든 학습
+}
+
+/* ---------- 캔들 ---------- */
+const CANDLE_COUNT = 240
+const candleCache = new Map()
+function candles(symbol, tfCode){
+  const key = symbol + '|' + tfCode
+  if (candleCache.has(key)) return candleCache.get(key)
+  const sym = SYMBOLS.find(s => s.symbol === symbol)
+  const tf = TIMEFRAMES.find(t => t.code === tfCode)
+  const r = rng(sym.seed * 7919 + tf.unit * 13)
+  const step = sym.vol * Math.sqrt(tf.unit / 390)
+  const closes = new Array(CANDLE_COUNT)
+  let p = sym.last, drift = 0
+  for (let i = CANDLE_COUNT - 1; i >= 0; i--) {
+    closes[i] = p
+    if (i % 24 === 0) drift = (r() - 0.47) * step * 0.55
+    const shock = (r() + r() + r() - 1.5) * step * 0.78
+    p = p / (1 + shock + drift)
+    if (p < sym.last * 0.3) p = sym.last * 0.3
+  }
+  const out = closes.map((close, i) => {
+    const open = i === 0 ? close * (1 - (r() - 0.5) * step) : closes[i - 1]
+    const body = Math.abs(close - open)
+    const wick = (body + close * step * 0.25) * (0.3 + r())
+    const base = sym.kr ? 9e5 : 2.4e7
+    return {
+      time: NOW - (CANDLE_COUNT - 1 - i) * tf.sec,
+      open, close,
+      high: Math.max(open, close) + wick * r(),
+      low: Math.min(open, close) - wick * r(),
+      volume: Math.max(1, Math.round((0.55 + r()) * base * (tf.unit / 390) ** 0.7 * (1 + body / close * 25))),
+    }
+  })
+  candleCache.set(key, out)
+  return out
+}
+function sma(values, n){
+  const out = new Array(values.length).fill(null)
+  let sum = 0
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i]; if (i >= n) sum -= values[i - n]
+    if (i >= n - 1) out[i] = sum / n
+  }
+  return out
+}
+function tokens(){
+  const sym = SYMBOLS.find(s => s.symbol === state.symbol) || SYMBOLS[0]
+  const kr = state.scheme === 'auto' ? sym.kr : state.scheme === 'kr'
+  return { up: cssVar(kr ? '--kr-up' : '--gl-up'), down: cssVar(kr ? '--kr-down' : '--gl-down'), digits: sym.digits }
+}
+
+/* ---------- 아이콘 ---------- */
+const I = {
+  chart:'M3 20h18M6 16V9M10 16V5M14 16v-6M18 16V8',
+  research:'M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z',
+  data:'M4.5 5.5c0-1.5 3.4-2.8 7.5-2.8s7.5 1.3 7.5 2.8v13c0 1.5-3.4 2.8-7.5 2.8s-7.5-1.3-7.5-2.8z M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8',
+  flask:'M9 3h6M10 3v6.5L4.6 18.4A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.4-2.6L14 9.5V3M7.5 15h9',
+  module:'M12 3 20 7.5v9L12 21l-8-4.5v-9zM12 12 20 7.5M12 12v9M12 12 4 7.5',
+  backtest:'M3 17l5-5 4 3 8-8M15 7h5v5M3 21h18',
+  paper:'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4',
+  search:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm9 16-3.5-3.5',
+  chevron:'M9 6l6 6-6 6',
+  close:'M6 6l12 12M18 6 6 18',
+  sun:'M12 4V2M12 22v-2M4 12H2M22 12h-2M6 6 4.6 4.6M19.4 19.4 18 18M18 6l1.4-1.4M4.6 19.4 6 18M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z',
+  moon:'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z',
+  monitor:'M3 4h18v12H3zM8 20h8M12 16v4',
+}
+const svg = (d, w = 17) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="${w}" height="${w}"><path d="${d}"/></svg>`
+
+/* ---------- 라우팅 ---------- */
+const ROUTES = {
+  '#/chart':                  { title:'마켓 차트',    render: renderChartPage },
+  '#/research':               { title:'연구 대시보드', render: renderResearchPage },
+  '#/research/data':          { title:'데이터',       render: renderDataPage },
+  '#/research/data/modules':  { title:'데이터 모듈',   render: renderDataModulePage },
+  '#/research/experiments':   { title:'학습',         render: renderExperimentsPage },
+  '#/research/modules':       { title:'학습 모듈',     render: renderMyModulePage },
+  '#/research/backtest':      { title:'백테스트',      render: () => renderPlaceholder('백테스트', '전략을 과거 구간에 돌려 성과를 보는 화면') },
+  '#/research/paper':         { title:'논문',         render: () => renderPlaceholder('논문', '학습 결과를 논문 꼴로 묶는 화면') },
+}
+function go(route){ location.hash = route }
+window.addEventListener('hashchange', () => { state.route = location.hash || '#/chart'; render() })
+
+/* =====================================================================
+ * 틀 그리기
+ * =================================================================== */
+function render(){
+  const app = $('#app')
+  if (!state.authed) { app.innerHTML = ''; app.appendChild(renderLogin()); return }
+  const route = ROUTES[state.route] ? state.route : '#/chart'
+  app.innerHTML = ''
+  app.appendChild(renderSide(route))
+  const view = el('main', 'view')
+  view.appendChild(ROUTES[route].render())
+  app.appendChild(view)
+  $('#demohint').textContent = route === '#/chart' ? '차트는 휠로 확대 · 끌어서 이동' : '왼쪽 메뉴에서 화면을 옮겨 보세요'
+  if (route === '#/chart') requestAnimationFrame(drawChart)
+}
+
+function renderSide(route){
+  const side = el('aside', 'side' + (state.collapsed ? ' collapsed' : ''))
+  const running = EXPERIMENTS.concat(state.extra).filter(e => e.status === 'running' || e.status === 'stopping').length
+
+  side.innerHTML = `
+    <div class="brand">
+      <div class="mk">${svg('M3 17l5-6 4 3 8-9M15 5h5v5', 17)}</div>
+      <div class="brandtxt"><div class="nm">BXAI Lab</div><div class="sb">금융 시계열 연구</div></div>
+      <button class="colbtn" title="${state.collapsed ? '메뉴 펼치기' : '메뉴 접기'}" data-act="collapse">${svg('M15 6l-6 6 6 6', 15)}</button>
+    </div>
+    <div class="slabel">메뉴</div>
+    <nav class="navs">
+      ${navItem('#/chart', '마켓 차트', I.chart, route)}
+      ${navItem('#/research', '연구 대시보드', I.research, route, running ? `<span class="navbadge">${running}</span>` : '')}
+      ${navGroup('data', '#/research/data', '데이터', I.data, route, [
+        ['#/research/data/modules', '데이터 모듈', I.module],
+      ])}
+      ${navGroup('experiments', '#/research/experiments', '학습', I.flask, route, [
+        ['#/research/modules', '학습 모듈', I.module],
+      ])}
+      ${navItem('#/research/backtest', '백테스트', I.backtest, route, '<span class="svcdot" title="서비스 적용 예정"></span>')}
+      ${navItem('#/research/paper', '논문', I.paper, route)}
+    </nav>
+    <div class="slabel">관심 종목</div>
+    <div class="wl">
+      <div class="wlsearch">${svg(I.search, 13)}<input placeholder="종목 검색" value="${esc(state.wlQuery)}" data-act="wlq" /></div>
+      <div id="wllist"></div>
+    </div>
+    <div class="sfoot">
+      <div class="themeseg" role="radiogroup" aria-label="화면 테마">
+        <button data-theme="auto" class="${state.theme === 'auto' ? 'on' : ''}" title="시스템 설정 따르기">${svg(I.monitor, 14)}</button>
+        <button data-theme="light" class="${state.theme === 'light' ? 'on' : ''}" title="라이트 모드">${svg(I.sun, 14)}</button>
+        <button data-theme="dark" class="${state.theme === 'dark' ? 'on' : ''}" title="다크 모드">${svg(I.moon, 14)}</button>
+      </div>
+      <button class="conn ${state.realtime ? '' : 'off'}" data-act="rt" title="눌러서 연결을 끊어 보세요">
+        <span class="dot"></span><span class="ft">${state.realtime ? '실시간' : '끊김 · 10초마다 다시 읽음'}</span>
+      </button>
+      <div class="me ft"><span>연구원</span><span class="lv">USER</span></div>
+      <div class="ft"><button class="lnk" data-act="pw">비밀번호 변경</button><span class="faint">·</span><button class="lnk" data-act="logout">로그아웃</button></div>
+      <div class="ft"><button class="lnk" data-act="notice">오픈소스 고지</button></div>
+      <div class="ver">v0.6.1 · 체험판</div>
+    </div>`
+
+  side.querySelector('[data-act="collapse"]').onclick = () => { state.collapsed = !state.collapsed; render() }
+  side.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => setTheme(b.dataset.theme))
+  side.querySelector('[data-act="rt"]').onclick = () => { state.realtime = !state.realtime; render() }
+  side.querySelector('[data-act="pw"]').onclick = openPasswordModal
+  side.querySelector('[data-act="notice"]').onclick = openNoticeModal
+  side.querySelector('[data-act="logout"]').onclick = () => { state.authed = false; render() }
+  side.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => go(b.dataset.nav))
+  side.querySelectorAll('[data-group]').forEach(b => b.onclick = e => {
+    const key = b.dataset.group, to = b.dataset.nav2
+    // 누르는 횟수로 할 일을 나눈다 — 이미 그 화면이면 하위 메뉴를 펼치고 접는다
+    if (state.route === to) { state.navOpen[key] = !state.navOpen[key]; render() }
+    else go(to)
+    e.preventDefault()
+  })
+  const q = side.querySelector('[data-act="wlq"]')
+  q.oninput = () => { state.wlQuery = q.value; renderWatchlist(side) }
+  renderWatchlist(side)
+  return side
+}
+function navItem(to, label, icon, route, extra = ''){
+  return `<button class="navi ${route === to ? 'on' : ''}" data-nav="${to}">${svg(icon)}<span class="navtxt">${label}</span>${extra}</button>`
+}
+function navGroup(key, to, label, icon, route, subs){
+  const onSub = subs.some(([s]) => route === s)
+  const open = state.navOpen[key] || onSub
+  return `<div class="navgroup ${open ? 'open' : ''}">
+    <button class="navi ${route === to ? 'on' : ''}" data-group="${key}" data-nav2="${to}">
+      ${svg(icon)}<span class="navtxt">${label}</span><span class="navcaret">${svg(I.chevron, 13)}</span>
+    </button>
+    <div class="navsubs" ${open ? '' : 'hidden'}>
+      ${subs.map(([s, l, ic]) => `<button class="navsub ${route === s ? 'on' : ''}" data-nav="${s}">${svg(ic, 14)}<span class="navtxt">${l}</span></button>`).join('')}
+    </div>
+  </div>`
+}
+function renderWatchlist(side){
+  const box = side.querySelector('#wllist')
+  const t = tokens()
+  const q = state.wlQuery.trim().toLowerCase()
+  const shown = SYMBOLS.filter(s => !q || s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+  box.innerHTML = shown.length ? shown.map(s => {
+    const c = candles(s.symbol, '1d')
+    const last = c[c.length-1].close, prev = c[c.length-2].close
+    const pct = (last - prev) / prev * 100
+    return `<button class="wli ${s.symbol === state.symbol ? 'on' : ''}" data-sym="${s.symbol}">
+      <span class="s">${s.symbol}</span><span class="p">${nf(last, s.digits)}</span>
+      <span class="n">${s.exchange}</span><span class="c" style="color:${pct >= 0 ? t.up : t.down}">${signed(pct, 2)}%</span>
+    </button>`
+  }).join('') : '<div class="wlempty">검색 결과가 없습니다</div>'
+  box.querySelectorAll('[data-sym]').forEach(b => b.onclick = () => {
+    state.symbol = b.dataset.sym; state.offset = 0
+    if (state.route !== '#/chart') go('#/chart'); else render()
+  })
+}
+function setTheme(v){
+  state.theme = v
+  const dark = v === 'dark' || (v === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+  render()
+}
+
+/* =====================================================================
+ * 로그인
+ * =================================================================== */
+function renderLogin(){
+  const wrap = el('div', 'auth')
+  wrap.innerHTML = `
+    <form class="authbox">
+      <div class="bt"><div class="mk" style="width:34px;height:34px;border-radius:10px;background:var(--brand-weak);display:grid;place-items:center;color:var(--brand)">${svg('M3 17l5-6 4 3 8-9M15 5h5v5', 19)}</div>
+        <div><h1>BXAI Lab</h1><div class="sub">금융 시계열 연구</div></div></div>
+      <div class="sub" style="margin-bottom:14px">미리 등록된 계정으로만 로그인할 수 있습니다.</div>
+      <div class="field"><label for="lg-id">아이디 또는 이메일</label><input id="lg-id" value="researcher" autocomplete="off" /></div>
+      <div class="field"><label for="lg-pw">비밀번호</label><input id="lg-pw" type="password" value="demo" /></div>
+      <button class="primary" type="submit">로그인</button>
+      <div class="hint" style="margin-top:11px;text-align:center">체험판입니다 — 아무 값이나 넣고 눌러도 들어갑니다.</div>
+    </form>`
+  wrap.querySelector('form').onsubmit = e => { e.preventDefault(); state.authed = true; render() }
+  return wrap
+}
+function renderPlaceholder(title, desc){
+  const p = el('div', 'page')
+  p.innerHTML = `<div class="placeholder"><h1>${title}</h1><span>준비 중인 화면입니다.</span><span class="faint">${desc}</span></div>`
+  return p
+}
+
+/* =====================================================================
+ * 1. 마켓 차트
+ * =================================================================== */
+function renderChartPage(){
+  const sym = SYMBOLS.find(s => s.symbol === state.symbol)
+  const t = tokens()
+  const c = candles(state.symbol, state.tf)
+  const last = c[c.length-1].close, prev = c[c.length-2].close
+  const diff = last - prev, pct = diff / prev * 100
+  const page = el('div', 'page')
+  page.innerHTML = `
+    <header class="phead">
+      <div class="ident">
+        <div class="t1"><span class="sym">${sym.symbol}</span>
+          <span class="chip">${sym.exchange}</span><span class="chip">주식</span>
+          <span class="chip"><span class="dot" style="background:var(--muted)"></span> 장 마감</span>
+          <span class="chip">${sym.mode === 'realtime' ? '실시간 수집' : '모아서 수집'}</span></div>
+        <div class="sub">${sym.name}</div>
+      </div>
+      <div class="quote">
+        <div class="px" style="color:${diff >= 0 ? t.up : t.down}">${nf(last, sym.digits)}</div>
+        <div class="chg" style="color:${diff >= 0 ? t.up : t.down}">${signed(diff, sym.digits)} (${signed(pct, 2)}%) <span class="muted" style="font-family:var(--sans)">전일 대비</span></div>
+        <div class="upd">마지막 캔들 ${fmtMD(c[c.length-1].time)}</div>
+      </div>
+    </header>
+    <div class="controls">
+      <div class="seg" id="tfseg" role="radiogroup" aria-label="봉 종류">
+        ${TIMEFRAMES.map(tf => `<button data-tf="${tf.code}" class="${state.tf === tf.code ? 'on' : ''}">${tf.label}</button>`).join('')}
+      </div>
+      <div class="seg" role="radiogroup" aria-label="상승 하락 색">
+        <button data-scheme="kr" class="${state.scheme === 'kr' ? 'on' : ''}">한국식</button>
+        <button data-scheme="global" class="${state.scheme === 'global' ? 'on' : ''}">해외식</button>
+      </div>
+      <div class="sp"></div>
+      <span class="muted num">${fmtDT(c[0].time)} ~ ${fmtDT(c[c.length-1].time)}</span>
+    </div>
+    <div class="ccard">
+      <div class="chartbox"><canvas id="chart"></canvas><div class="dcard" id="dcard"></div></div>
+      <div class="cfoot"><span class="num" id="clock"></span><span class="sp"></span>
+        <span>봉 ${c.length}개 · 이동평균 20 · 60 · 휠로 확대 · 끌어서 이동 · 더블클릭으로 되돌리기</span></div>
+    </div>`
+  page.querySelectorAll('[data-tf]').forEach(b => b.onclick = () => { state.tf = b.dataset.tf; state.offset = 0; render() })
+  page.querySelectorAll('[data-scheme]').forEach(b => b.onclick = () => { state.scheme = b.dataset.scheme; render() })
+  setTimeout(bindChart, 0)
+  return page
+}
+function bindChart(){
+  const canvas = $('#chart'); if (!canvas) return
+  canvas.onmousemove = e => {
+    const r = canvas.getBoundingClientRect()
+    state.hover = { x: e.clientX - r.left, y: e.clientY - r.top }
+    drawChart()
+  }
+  canvas.onmouseleave = () => { state.hover = null; drawChart() }
+  canvas.onwheel = e => {
+    e.preventDefault()
+    const all = candles(state.symbol, state.tf)
+    state.zoom = Math.max(30, Math.min(all.length, Math.round(state.zoom * (e.deltaY > 0 ? 1.15 : 0.87))))
+    state.offset = Math.max(0, Math.min(all.length - state.zoom, state.offset))
+    drawChart()
+  }
+  let drag = null
+  canvas.onpointerdown = e => { drag = { x:e.clientX, off:state.offset }; canvas.setPointerCapture(e.pointerId) }
+  canvas.onpointerup = () => { drag = null }
+  canvas.onpointermove = e => {
+    if (!drag || !chartGeom) return
+    const all = candles(state.symbol, state.tf)
+    state.offset = Math.max(0, Math.min(all.length - state.zoom, drag.off + Math.round((e.clientX - drag.x) / chartGeom.cw)))
+    drawChart()
+  }
+  canvas.ondblclick = () => { state.zoom = 120; state.offset = 0; drawChart() }
+}
+let chartGeom = null
+function drawChart(){
+  const canvas = $('#chart'); if (!canvas) return
+  const box = canvas.parentElement.getBoundingClientRect()
+  const dpr = window.devicePixelRatio || 1
+  canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr)
+  const ctx = canvas.getContext('2d')
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, box.width, box.height)
+  const W = box.width, H = box.height, PR = 62, PB = 20, PL = 8, PT = 8
+  const t = tokens(), grid = cssVar('--chart-grid'), muted = cssVar('--muted')
+  const all = candles(state.symbol, state.tf)
+  const end = Math.max(10, all.length - state.offset), start = Math.max(0, end - state.zoom)
+  const rows = all.slice(start, end)
+  if (!rows.length) return
+
+  const volH = 56, priceH = H - PT - PB - volH
+  const cw = (W - PL - PR) / rows.length, bw = Math.max(1, Math.min(13, cw * 0.68))
+  const xOf = i => PL + cw * (i + 0.5)
+  const closes = rows.map(c => c.close)
+  const ma = [[20, '--ma1'], [60, '--ma2']].map(([n, tok]) => ({ n, tok, s: sma(closes, n) }))
+
+  let hi = -Infinity, lo = Infinity
+  rows.forEach(c => { hi = Math.max(hi, c.high); lo = Math.min(lo, c.low) })
+  ma.forEach(m => m.s.forEach(v => { if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v) } }))
+  const pad2 = (hi - lo) * 0.08 || hi * 0.01
+  hi += pad2; lo -= pad2
+  const yP = v => PT + priceH - (v - lo) / (hi - lo) * priceH
+
+  ctx.font = '10px ' + cssVar('--mono'); ctx.textBaseline = 'middle'; ctx.lineWidth = 1
+  ctx.strokeStyle = grid; ctx.fillStyle = muted
+  for (let i = 0; i <= 5; i++) {
+    const v = lo + (hi - lo) * i / 5, y = Math.round(yP(v)) + 0.5
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke()
+    ctx.textAlign = 'left'; ctx.fillText(nf(v, t.digits), W - PR + 6, y)
+  }
+  rows.forEach((c, i) => {
+    const up = c.close >= c.open, col = up ? t.up : t.down, x = xOf(i)
+    ctx.strokeStyle = col; ctx.fillStyle = col
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, yP(c.high)); ctx.lineTo(Math.round(x) + 0.5, yP(c.low)); ctx.stroke()
+    const yo = yP(c.open), yc = yP(c.close)
+    ctx.fillRect(x - bw/2, Math.min(yo, yc), bw, Math.max(1, Math.abs(yc - yo)))
+  })
+  ma.forEach(m => {
+    ctx.strokeStyle = cssVar(m.tok); ctx.lineWidth = 1.3; ctx.beginPath(); let st = false
+    m.s.forEach((v, i) => { if (v == null) return; const x = xOf(i), y = yP(v); st ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), st = true) })
+    ctx.stroke()
+  })
+  const vmax = Math.max(...rows.map(c => c.volume))
+  ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(PL, PT + priceH + 0.5); ctx.lineTo(W - PR, PT + priceH + 0.5); ctx.stroke()
+  rows.forEach((c, i) => {
+    const h = c.volume / vmax * (volH - 8)
+    ctx.fillStyle = (c.close >= c.open ? t.up : t.down) + '99'
+    ctx.fillRect(xOf(i) - bw/2, PT + priceH + volH - h, bw, h)
+  })
+  ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.fillText(fmtVol(vmax), W - PR + 6, PT + priceH + 10)
+  ctx.textAlign = 'center'
+  const step = Math.max(1, Math.round(rows.length / 7))
+  rows.forEach((c, i) => { if (i % step === 0) ctx.fillText(fmtDT(c.time).slice(5, state.tf === '1d' || state.tf === '1w' ? 10 : 16), xOf(i), H - PB/2) })
+
+  const lastC = rows[rows.length-1], ly = yP(lastC.close)
+  ctx.fillStyle = lastC.close >= lastC.open ? t.up : t.down
+  ctx.fillRect(W - PR + 2, ly - 8, PR - 4, 16)
+  ctx.fillStyle = '#fff'; ctx.fillText(nf(lastC.close, t.digits), W - PR/2, ly)
+
+  let hoverIdx = rows.length - 1
+  if (state.hover) {
+    hoverIdx = Math.max(0, Math.min(rows.length - 1, Math.floor((state.hover.x - PL) / cw)))
+    const x = Math.round(xOf(hoverIdx)) + 0.5, y = Math.round(state.hover.y) + 0.5
+    ctx.strokeStyle = cssVar('--cross'); ctx.setLineDash([4, 4])
+    ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, H - PB); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke()
+    ctx.setLineDash([])
+    if (y > PT && y < PT + priceH) {
+      const v = lo + (PT + priceH - y) / priceH * (hi - lo)
+      ctx.fillStyle = cssVar('--cross-label'); ctx.fillRect(W - PR + 2, y - 8, PR - 4, 16)
+      ctx.fillStyle = '#fff'; ctx.fillText(nf(v, t.digits), W - PR/2, y)
+    }
+  }
+  chartGeom = { cw }
+  const c = rows[hoverIdx], d = c.close - c.open
+  const dc = $('#dcard')
+  if (dc) dc.innerHTML = `
+    <div class="dt">${fmtDT(c.time)} · ${TIMEFRAMES.find(x => x.code === state.tf).label}</div>
+    <div class="g"><span>시가</span><b>${nf(c.open, t.digits)}</b><span>고가</span><b>${nf(c.high, t.digits)}</b>
+      <span>저가</span><b>${nf(c.low, t.digits)}</b><span>종가</span><b>${nf(c.close, t.digits)}</b></div>
+    <div class="g" style="grid-template-columns:auto auto 1fr">
+      <span style="color:${d >= 0 ? t.up : t.down}">${signed(d, t.digits)} (${signed(d / c.open * 100, 2)}%)</span>
+      <span>거래량</span><b style="text-align:left">${fmtVol(c.volume)}</b></div>
+    ${ma.map(m => m.s[hoverIdx] != null ? `<span class="num" style="color:var(${m.tok});font-size:11px;margin-right:8px">평균 ${m.n} ${nf(m.s[hoverIdx], t.digits)}</span>` : '').join('')}`
+}
+
+/* =====================================================================
+ * 2. 연구 대시보드 개요
+ * =================================================================== */
+function allExperiments(){ return state.extra.concat(EXPERIMENTS) }
+function renderResearchPage(){
+  const list = allExperiments()
+  const running = list.filter(e => e.status === 'running' || e.status === 'stopping')
+  const queued = list.filter(e => e.status === 'queued')
+  const week = NOW - 7 * 86400
+  const done7 = list.filter(e => e.status === 'done' && e.finishedAt >= week)
+  const best = done7.reduce((a, e) => !a || e.finalMetrics.test_auc > a.finalMetrics.test_auc ? e : a, null)
+  const page = el('div', 'page')
+  page.innerHTML = `
+    <header class="rhead">
+      <div><h1>연구 대시보드</h1><div class="sub">학습 진행 · 결과 비교 · 데이터 수집 현황</div></div>
+      <div class="sp"></div>
+      <span class="chip"><span class="dot" style="background:var(${state.realtime ? '--ok' : '--warn'})"></span>${state.realtime ? '실시간' : '폴링 중'}</span>
+      <button class="primary" data-act="new">＋ 새 학습</button>
+    </header>
+    <div class="grid">
+      ${kpi('실행 중 · 대기', `${running.length} <small>/ ${queued.length}</small>`,
+        `<span><span class="dot" style="background:var(--st-running)"></span> 실행 ${running.length}</span>
+         <span><span class="dot" style="background:var(--st-queued)"></span> 대기 ${queued.length}</span>
+         <span>워커 ${new Set(running.map(e => e.workerId)).size}대 사용 중</span>`)}
+      ${kpi('완료 · 최근 7일', done7.length,
+        `<span style="color:var(--bad)">실패 ${list.filter(e => e.status === 'failed' && e.finishedAt >= week).length}</span>
+         <span>중단 ${list.filter(e => e.status === 'stopped' && e.finishedAt >= week).length}</span>`)}
+      ${kpi('최고 test_auc · 7일', best ? fmtMetric(best.finalMetrics.test_auc) : '—', best ? `<span>${best.name}</span>` : '')}
+      ${kpi('데이터 최신성', '정상', SYMBOLS.map(s => `<span><span class="dot" style="background:var(--muted)"></span> ${s.symbol}</span>`).slice(0, 3).join('') + '<span>…</span>', 'var(--ok)')}
+
+      <div class="card s8">
+        <div class="hd"><h2>진행 중인 학습</h2><span class="sub">${running.length + queued.length}건</span><div class="sp"></div>
+          <button class="lnk" data-act="goex">학습 전체 보기 →</button></div>
+        <div id="runbox"></div>
+      </div>
+      <div class="card s4">
+        <div class="hd"><h2>수집 기록</h2><span class="sub">최근 수집 실행</span><div class="sp"></div><button class="lnk" data-act="godata">전체 →</button></div>
+        <div class="log">${RUNS.slice(0, 12).map(r => `
+          <div class="lrow"><span class="t">${fmtMD(r.startedAt).slice(6)}</span>
+            <span><span class="badge ${r.status === 'done' ? 'st-done' : 'st-failed'}">${r.status === 'done' ? '완료' : '실패'}</span></span>
+            <span class="d">${r.symbol} · ${r.rows}행</span></div>`).join('')}</div>
+      </div>
+
+      <div class="card s12">
+        <div class="hd"><h2>학습 일정</h2><span class="sub">최근 7일 · 워커별 실행 구간</span></div>
+        <div style="padding:8px 8px 0;overflow-x:auto">${timelineSVG(list)}</div>
+        <div class="legendrow">
+          <span><i style="background:var(--st-done)"></i>완료</span><span><i style="background:var(--st-running)"></i>실행 중</span>
+          <span><i style="background:var(--st-failed)"></i>실패</span><span><i style="background:var(--st-stopped)"></i>중단</span>
+        </div>
+      </div>
+
+      <div class="card s8">
+        <div class="hd"><h2>학습 성적표</h2><span class="sub">완료 학습 · 최종 지표 — 지표마다 가장 좋은 값을 굵게</span></div>
+        <div class="tablewrap">${scorecardTable(list.filter(e => e.status === 'done').slice(0, 8))}</div>
+      </div>
+      <div class="card s4">
+        <div class="hd"><h2>데이터 현황</h2><span class="sub">종목별 마지막 1분봉</span><div class="sp"></div><button class="lnk" data-act="godata">데이터 전체 보기 →</button></div>
+        <div class="bd">${SYMBOLS.map((s, i) => `
+          <div class="fresh"><span class="sym">${s.symbol}</span>
+            <span class="muted num">마지막 ${s.kr ? '14:59' : '05:59'}</span>
+            <span class="badge ${i === 2 ? 'st-stopping' : 'st-stopped'}">${i === 2 ? '지연' : '장 마감'}</span></div>`).join('')}
+          <div class="note">최근 30일 일별 적재율은 커버리지 API가 확정되면 여기에 그립니다.</div>
+        </div>
+      </div>
+    </div>`
+  page.querySelector('[data-act="new"]').onclick = openNewExperiment
+  page.querySelector('[data-act="goex"]').onclick = () => go('#/research/experiments')
+  page.querySelectorAll('[data-act="godata"]').forEach(b => b.onclick = () => go('#/research/data'))
+  const runbox = page.querySelector('#runbox')
+  const act = running.concat(queued)
+  runbox.innerHTML = act.length ? act.map(e => `
+    <div class="run" data-open="${e.id}">
+      <div style="min-width:0">
+        <div class="nm">${e.name} <span class="badge st-${e.status}">${statusLabel(e.status)}</span></div>
+        <div class="meta">${e.modelType} · ${e.symbol} · ${tfLabel(e.timeframe)} · ${e.workerId ?? '워커 배정 전'}</div>
+        ${e.status === 'running' ? `<div class="prog"><i style="width:${Math.round(e.progress*100)}%"></i></div>` : ''}
+        <div class="meta">${e.startedAt ? `경과 ${fmtDur(NOW - e.startedAt)} · ${fmtMD(e.startedAt)} 시작` : `대기 중 · ${fmtAgo(e.createdAt)} 생성`}</div>
+      </div>
+      <div><button class="ghost danger sm" data-stop="${e.id}">${e.status === 'stopping' ? '중단 중…' : '중단'}</button></div>
+    </div>`).join('') : '<div class="empty">진행 중인 학습이 없습니다</div>'
+  runbox.querySelectorAll('[data-stop]').forEach(b => b.onclick = e => { e.stopPropagation(); stopExperiment(b.dataset.stop) })
+  runbox.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { state.exSelected = b.dataset.open; go('#/research/experiments') })
+  return page
+}
+function kpi(label, value, sub, color){
+  return `<div class="card kpi s3"><div class="l">${label}</div>
+    <div class="v" ${color ? `style="color:${color}"` : ''}>${value}</div>
+    ${sub ? `<div class="s">${sub}</div>` : ''}</div>`
+}
+const statusLabel = s => ({ queued:'대기', running:'실행 중', stopping:'중단 중', stopped:'중단', done:'완료', failed:'실패' }[s])
+const tfLabel = c => (TIMEFRAMES.find(t => t.code === c) || { label:c }).label
+
+function timelineSVG(list){
+  const W = 1100, laneH = 26, left = 76, days = 7
+  const t0 = NOW - days * 86400
+  const lanes = WORKERS
+  const H = lanes.length * laneH + 26
+  const xOf = ts => left + (ts - t0) / (days * 86400) * (W - left - 12)
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block">`
+  for (let d = 0; d <= days; d++) {
+    const x = xOf(t0 + d * 86400)
+    s += `<line x1="${x}" y1="16" x2="${x}" y2="${H - 8}" stroke="${cssVar('--line2')}"/>`
+    s += `<text x="${x + 3}" y="11" fill="${cssVar('--muted')}" font-size="10">${new Date((t0 + d*86400)*1000).getMonth()+1}/${new Date((t0 + d*86400)*1000).getDate()}</text>`
+  }
+  lanes.forEach((w, i) => {
+    const y = 20 + i * laneH
+    s += `<text x="6" y="${y + 13}" fill="${cssVar('--ink2')}" font-size="11" font-family="${cssVar('--mono')}">${w}</text>`
+    s += `<rect x="${left}" y="${y}" width="${W - left - 12}" height="${laneH - 6}" fill="${cssVar('--surface2')}" rx="4"/>`
+    list.filter(e => e.workerId === w && e.startedAt && e.startedAt > t0).forEach(e => {
+      const x1 = Math.max(left, xOf(e.startedAt)), x2 = xOf(e.finishedAt ?? NOW)
+      const col = cssVar('--st-' + (e.status === 'stopping' ? 'running' : e.status))
+      s += `<rect x="${x1}" y="${y}" width="${Math.max(3, x2 - x1)}" height="${laneH - 6}" fill="${col}" rx="4" opacity=".92"><title>${esc(e.name)} · ${statusLabel(e.status)}</title></rect>`
+      if (x2 - x1 > 70) s += `<text x="${x1 + 6}" y="${y + 14}" fill="${cssVar('--surface')}" font-size="10" font-weight="600">${esc(e.name)}</text>`
+    })
+  })
+  const nx = xOf(NOW)
+  s += `<line x1="${nx}" y1="16" x2="${nx}" y2="${H - 8}" stroke="${cssVar('--ink')}" stroke-dasharray="3 3"/>`
+  return s + '</svg>'
+}
+function scorecardTable(rows){
+  const best = {}
+  METRIC_KEYS.forEach(k => {
+    const vals = rows.map(e => e.finalMetrics?.[k]).filter(v => v != null)
+    if (vals.length) best[k] = lowerIsBetter(k) ? Math.min(...vals) : Math.max(...vals)
+  })
+  return `<table><thead><tr><th class="l">학습</th><th class="l">모델 · 종목 · 주기</th><th>학습 행</th>
+    ${METRIC_KEYS.map(k => `<th>${k}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(e => `<tr><td class="nm">${e.name}</td>
+      <td class="txt l">${e.modelType} · ${e.symbol} · ${tfLabel(e.timeframe)}</td>
+      <td>${nf(e.dataRows)}</td>
+      ${METRIC_KEYS.map(k => `<td class="${e.finalMetrics[k] === best[k] ? 'best' : ''}">${fmtMetric(e.finalMetrics[k])}</td>`).join('')}
+    </tr>`).join('')}</tbody></table>`
+}
+function stopExperiment(id){
+  const e = allExperiments().find(x => x.id === id)
+  if (!e) return
+  if (!confirm(`"${e.name}" 학습을 중단할까요?`)) return
+  if (e.status === 'queued') { e.status = 'stopped'; e.finishedAt = NOW }
+  else { e.status = 'stopping'; setTimeout(() => { e.status = 'stopped'; e.finishedAt = NOW; render() }, 1200) }
+  render()
+}
+
+/* =====================================================================
+ * 3. 학습 (목록 · 필터 · 상세 · 비교)
+ * =================================================================== */
+const STATUS_FILTERS = {
+  all: { label:'전체', statuses:null },
+  active: { label:'진행 · 대기', statuses:['queued','running','stopping'] },
+  done: { label:'완료', statuses:['done'] },
+  ended: { label:'실패 · 중단', statuses:['failed','stopped'] },
+}
+function renderExperimentsPage(){
+  const all = allExperiments()
+  const q = state.exQuery.trim().toLowerCase()
+  const matchQ = e => !q || e.name.toLowerCase().includes(q) || e.modelType.toLowerCase().includes(q)
+  const rows = all.filter(e => matchQ(e) && (!STATUS_FILTERS[state.exFilter].statuses || STATUS_FILTERS[state.exFilter].statuses.includes(e.status)))
+  const { key, desc } = state.exSort
+  rows.sort((a, b) => {
+    const va = a[key] ?? 0, vb = b[key] ?? 0
+    const r = typeof va === 'string' ? va.localeCompare(vb) : va - vb
+    return desc ? -r : r
+  })
+  const picked = state.exPicked.map(id => all.find(e => e.id === id)).filter(Boolean)
+  const sel = all.find(e => e.id === state.exSelected)
+
+  const page = el('div', 'page')
+  page.innerHTML = `
+    <header class="rhead">
+      <div><div class="crumb"><a data-go="#/research">연구 대시보드</a> › 학습</div>
+        <h1>학습</h1><div class="sub">모든 학습 목록 · 필터 · 상세 · 비교</div></div>
+      <div class="sp"></div>
+      <button class="primary" data-act="new">＋ 새 학습</button>
+    </header>
+    <div class="card">
+      <div class="hd"><h2>학습 목록</h2><span class="sub">${rows.length} / ${all.length}개 · 비교 ${picked.length}/4</span></div>
+      <div class="ex-filters">
+        <div class="seg">${Object.keys(STATUS_FILTERS).map(k => `
+          <button data-f="${k}" class="${state.exFilter === k ? 'on' : ''}">${STATUS_FILTERS[k].label}
+            <span class="c">${all.filter(e => matchQ(e) && (!STATUS_FILTERS[k].statuses || STATUS_FILTERS[k].statuses.includes(e.status))).length}</span></button>`).join('')}</div>
+        <div class="sp"></div>
+        <div class="ex-search">${svg(I.search, 13)}<input placeholder="이름 · 모델 검색" value="${esc(state.exQuery)}" data-act="q" /></div>
+      </div>
+      <div class="tablewrap">
+        <table><thead><tr>
+          <th style="width:30px"></th>
+          ${sortTh('name', '학습', 'l')}<th>상태</th><th class="l">모델 · 종목 · 주기</th>
+          <th class="l">학습 구간</th><th>워커</th>${sortTh('dataRows', '학습 행')}${sortTh('createdAt', '생성')}<th>걸린 시간</th>
+        </tr></thead><tbody>
+        ${rows.map(e => `<tr data-row="${e.id}" class="${state.exSelected === e.id ? 'sel' : ''}">
+          <td style="text-align:center"><input type="checkbox" data-pick="${e.id}" ${state.exPicked.includes(e.id) ? 'checked' : ''}
+            ${!state.exPicked.includes(e.id) && state.exPicked.length >= 4 ? 'disabled title="비교는 최대 4개까지입니다"' : ''} /></td>
+          <td class="nm">${e.name}<span class="sub">${e.id.slice(0, 8)}</span></td>
+          <td><span class="badge st-${e.status}">${statusLabel(e.status)}</span></td>
+          <td class="txt l">${e.modelType} · ${e.symbol} · ${tfLabel(e.timeframe)}</td>
+          <td class="l">${e.trainFrom} ~ ${e.trainTo}</td>
+          <td>${e.workerId ?? '—'}</td><td>${nf(e.dataRows)}</td>
+          <td>${fmtMD(e.createdAt)}</td>
+          <td>${e.startedAt ? fmtDur((e.finishedAt ?? NOW) - e.startedAt) : '—'}</td>
+        </tr>`).join('')}
+        </tbody></table>
+        ${rows.length ? '' : '<div class="empty">조건에 맞는 학습이 없습니다</div>'}
+      </div>
+      ${picked.length >= 2 ? compareBlock(picked) : picked.length === 1 ? '<div class="cmp"><span class="muted">하나 더 고르면 비교 표가 나옵니다 (최대 4개)</span></div>' : ''}
+      ${sel ? detailBlock(sel) : ''}
+    </div>`
+
+  page.querySelector('[data-act="new"]').onclick = openNewExperiment
+  page.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go))
+  page.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { state.exFilter = b.dataset.f; render() })
+  const qi = page.querySelector('[data-act="q"]')
+  qi.oninput = () => { state.exQuery = qi.value; const p = render(); setTimeout(() => { const n = $('[data-act="q"]'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length) } }, 0); return p }
+  page.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => {
+    const k = b.dataset.sort
+    state.exSort = { key:k, desc: state.exSort.key === k ? !state.exSort.desc : true }
+    render()
+  })
+  page.querySelectorAll('[data-row]').forEach(tr => tr.onclick = () => {
+    state.exSelected = state.exSelected === tr.dataset.row ? null : tr.dataset.row
+    render()
+  })
+  page.querySelectorAll('[data-pick]').forEach(cb => cb.onclick = ev => {
+    ev.stopPropagation()
+    const id = cb.dataset.pick
+    state.exPicked = state.exPicked.includes(id) ? state.exPicked.filter(x => x !== id)
+      : state.exPicked.length >= 4 ? state.exPicked : [...state.exPicked, id]
+    render()
+  })
+  page.querySelectorAll('[data-stop]').forEach(b => b.onclick = ev => { ev.stopPropagation(); stopExperiment(b.dataset.stop) })
+  return page
+}
+function sortTh(key, label, cls = ''){
+  const on = state.exSort.key === key
+  return `<th class="sortable ${cls}" data-sort="${key}">${label}${on ? ` <span class="ar">${state.exSort.desc ? '▾' : '▴'}</span>` : ''}</th>`
+}
+function detailBlock(e){
+  const m = e.finalMetrics
+  return `<div class="ex-split">
+    <div>
+      <div class="ex-sec">학습 곡선 · LOSS</div>
+      <div class="ex-loss">${lossSVG(e)}</div>
+      ${e.error ? `<div class="ex-sec">에러</div><div class="err mono">${esc(e.error)}</div>` : ''}
+      <div class="ex-sec">설정 (config)</div>
+      <pre class="cfg">${esc(JSON.stringify(e.config, null, 2))}</pre>
+    </div>
+    <div>
+      <div class="ex-sec" style="margin-top:0">개요</div>
+      <div class="mgrid">
+        <div class="mbox"><div class="k">상태</div><div class="v"><span class="badge st-${e.status}">${statusLabel(e.status)}</span></div></div>
+        <div class="mbox"><div class="k">워커</div><div class="v">${e.workerId ?? '배정 전'}</div></div>
+        <div class="mbox"><div class="k">모델 · 종목</div><div class="v">${e.modelType} · ${e.symbol}</div></div>
+        <div class="mbox"><div class="k">봉</div><div class="v">${tfLabel(e.timeframe)}</div></div>
+        <div class="mbox"><div class="k">학습 행</div><div class="v">${nf(e.dataRows)}</div></div>
+        <div class="mbox"><div class="k">체크포인트</div><div class="v clip" title="${e.checkpointPath ?? ''}">${e.checkpointPath ?? '—'}</div></div>
+      </div>
+      <div class="ex-sec">최종 지표</div>
+      ${m ? `<table class="mtab">${METRIC_KEYS.map(k => `<tr><td class="txt l">${k}</td><td>${fmtMetric(m[k])}</td></tr>`).join('')}</table>`
+          : '<div class="empty tight">완료된 학습이 아닙니다</div>'}
+      <div class="ex-sec">실행 기록</div>
+      <ul class="evl">
+        <li><i style="width:7px;height:7px;border-radius:50%;background:var(--st-queued);display:block"></i><span class="t">${fmtDT(e.createdAt)}</span><span class="d">학습 생성</span></li>
+        ${e.startedAt ? `<li><i style="width:7px;height:7px;border-radius:50%;background:var(--st-running);display:block"></i><span class="t">${fmtDT(e.startedAt)}</span><span class="d">${e.workerId}에서 시작</span></li>` : ''}
+        ${e.finishedAt ? `<li><i style="width:7px;height:7px;border-radius:50%;background:var(--st-${e.status});display:block"></i><span class="t">${fmtDT(e.finishedAt)}</span><span class="d">${statusLabel(e.status)} · ${fmtDur(e.finishedAt - e.startedAt)} 걸림</span></li>` : ''}
+      </ul>
+      ${(e.status === 'running' || e.status === 'queued') ? `<button class="ghost danger sm" style="margin-top:12px" data-stop="${e.id}">중단</button>` : ''}
+    </div>
+  </div>`
+}
+function lossSVG(e){
+  const vals = e.loss
+  const W = 420, H = 130, hi = Math.max(...vals), lo = Math.min(...vals)
+  const x = i => 6 + i / (vals.length - 1) * (W - 12)
+  const y = v => H - 10 - (v - lo) / (hi - lo || 1) * (H - 26)
+  const d = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="none">
+    <path d="${d} L${W-6} ${H-10} L6 ${H-10} Z" fill="${cssVar('--brand')}" opacity=".12"/>
+    <path d="${d}" fill="none" stroke="${cssVar('--brand')}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    <text x="8" y="12" fill="${cssVar('--muted')}" font-size="10">epoch 1~${vals.length} · 최종 ${vals[vals.length-1].toFixed(4)}</text>
+  </svg>`
+}
+function compareBlock(rows){
+  const palette = ['--brand', '--ma1', '--st-done', '--ma2']
+  const best = {}
+  METRIC_KEYS.forEach(k => {
+    const vals = rows.map(e => e.finalMetrics?.[k]).filter(v => v != null)
+    if (vals.length) best[k] = lowerIsBetter(k) ? Math.min(...vals) : Math.max(...vals)
+  })
+  const cfgKeys = [...new Set(rows.flatMap(e => Object.keys(e.config)))]
+  return `<div class="cmp">
+    <div class="cmphd"><b>학습 비교</b><span class="muted">${rows.length}개 · 지표마다 가장 좋은 값을 굵게</span></div>
+    <table class="cmptab">
+      <thead><tr><th></th>${rows.map((e, i) => `<th><span class="sw2" style="background:var(${palette[i]})"></span>${esc(e.name)}</th>`).join('')}</tr></thead>
+      <tbody>
+        <tr class="sec"><td colspan="${rows.length+1}">개요</td></tr>
+        <tr><td>상태</td>${rows.map(e => `<td class="txt"><span class="badge st-${e.status}">${statusLabel(e.status)}</span></td>`).join('')}</tr>
+        <tr><td>모델</td>${rows.map(e => `<td>${e.modelType}</td>`).join('')}</tr>
+        <tr><td>종목 · 봉</td>${rows.map(e => `<td>${e.symbol} · ${tfLabel(e.timeframe)}</td>`).join('')}</tr>
+        <tr><td>걸린 시간</td>${rows.map(e => `<td>${e.startedAt ? fmtDur((e.finishedAt ?? NOW) - e.startedAt) : '—'}</td>`).join('')}</tr>
+        <tr class="sec"><td colspan="${rows.length+1}">최종 지표</td></tr>
+        ${METRIC_KEYS.map(k => `<tr><td>${k}</td>${rows.map(e => {
+          const v = e.finalMetrics?.[k]
+          return `<td class="${v != null && v === best[k] ? 'best' : ''}">${fmtMetric(v)}</td>`
+        }).join('')}</tr>`).join('')}
+        <tr class="sec"><td colspan="${rows.length+1}">설정</td></tr>
+        ${cfgKeys.map(k => {
+          const vals = rows.map(e => JSON.stringify(e.config[k]))
+          const diff = new Set(vals).size > 1
+          return `<tr class="${diff ? 'diff' : ''}" ${diff ? 'style="background:var(--brand-weak)"' : ''}><td>${k}</td>${vals.map(v => `<td>${esc(v ?? '—')}</td>`).join('')}</tr>`
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`
+}
+
+/* =====================================================================
+ * 4. 데이터 (수집 현황)
+ * =================================================================== */
+function renderDataPage(){
+  const slice = DAY_STATS.slice(-state.range)
+  const total = slice.reduce((a, d) => a + d.total, 0)
+  const fail = slice.reduce((a, d) => a + d.fail, 0)
+  const rowsN = slice.reduce((a, d) => a + d.rows, 0)
+  const max = Math.max(...slice.map(d => d.total))
+  const st = { running:['정상','--ok'], stopped:['중지','--muted'], error:['오류','--bad'] }[state.modStatus]
+
+  const page = el('div', 'page')
+  page.innerHTML = `
+    <header class="rhead">
+      <div><div class="crumb"><a data-go="#/research">연구 대시보드</a> › 데이터</div>
+        <h1>데이터</h1><div class="sub">시장 데이터 수집 현황 — 모듈 상태 · 기간 집계 · 종목별 적재 · 수집 기록</div></div>
+      <div class="sp"></div>
+      <button class="ghost" data-go="#/research/data/modules">데이터 모듈 관리 →</button>
+    </header>
+    <div class="grid">
+      ${kpi('데이터 모듈 상태', st[0], `마지막 응답 20초 전`, `var(${st[1]})`)}
+      ${kpi('활성 버전', state.modVersion, '지금 설치돼 돌고 있는 버전')}
+      ${kpi('마지막 수집', '8분 전', fmtDT(NOW - 480))}
+      ${kpi('다음 예정', '내일 07:00', `배치 · 9시간 36분 뒤 · 실시간 ${state.schedule.realtime}마다`)}
+
+      <div class="card s8">
+        <div class="hd"><h2>기간 수집 집계</h2><span class="sub">${state.range === 1 ? '오늘' : `최근 ${state.range}일`}</span><div class="sp"></div>
+          <div class="seg">${[1,7,30].map(n => `<button data-range="${n}" class="${state.range === n ? 'on' : ''}">${n === 1 ? '오늘' : `최근 ${n}일`}</button>`).join('')}</div></div>
+        <div class="bd">
+          <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+            <div><div class="muted" style="font-size:11.5px">수집 건수</div><div class="num" style="font-size:21px;font-weight:650">${nf(total)}</div></div>
+            <div><div class="muted" style="font-size:11.5px">완료</div><div class="num" style="font-size:21px;font-weight:650;color:var(--ok)">${nf(total-fail)}</div><div class="faint" style="font-size:11px">한 번에 평균 1초</div></div>
+            <div><div class="muted" style="font-size:11.5px">실패</div><div class="num" style="font-size:21px;font-weight:650;color:var(--bad)">${nf(fail)}</div></div>
+            <div><div class="muted" style="font-size:11.5px">행 수</div><div class="num" style="font-size:21px;font-weight:650">${nf(rowsN)}</div><div class="faint" style="font-size:11px">날짜별 집계 ${slice.length}일</div></div>
+          </div>
+          <div class="bars">${slice.map(d => `<i class="${d.fail ? 'bad' : ''}" style="height:${Math.round(d.total/max*100)}%" title="${fmtDT(d.day).slice(0,10)} · ${nf(d.total)}건 · 실패 ${nf(d.fail)}"></i>`).join('')}</div>
+          <div class="note">날짜별 수집 건수 — 막대에 커서를 올리면 날짜와 실패 수가 나옵니다.</div>
+        </div>
+      </div>
+
+      <div class="card s4">
+        <div class="hd"><h2>최근 실패</h2><span class="sub">1가지 사유</span></div>
+        <div class="bd">
+          <div class="err mono">DNSError: Failed to perform, curl: (6) Could not resolve host: ●●●●●●●●●●●● . See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</div>
+          <div class="note"><b class="num">${nf(fail)}</b>회 · 마지막 ${fmtMD(NOW - 3600)} — 외부 데이터 제공처에 닿지 못했습니다.</div>
+        </div>
+      </div>
+
+      <div class="card s12">
+        <div class="hd"><h2>수집 항목 현황</h2><span class="sub">보기 전용 · 종목 × 봉</span><div class="sp"></div>
+          <span class="chip"><span class="dot" style="background:var(--muted)"></span> 장 마감 54</span></div>
+        <div class="tablewrap" style="max-height:340px">
+          <table><thead><tr><th class="l">종목</th><th class="l">봉</th><th>수집</th><th>마지막 캔들</th><th>경과</th><th>24시간 행 수</th><th>최신성</th></tr></thead>
+          <tbody>${SYMBOLS.map((s, i) => coverageRows(s, i)).join('')}</tbody></table>
+        </div>
+        <div class="note" style="padding:9px 14px 12px">경과는 봉이 닫힌 뒤 지난 시간입니다. 5분 안이면 정상, 1시간 안이면 지연, 그보다 길면 멈춤으로 봅니다. 종목 줄을 누르면 봉별로 펼쳐집니다.</div>
+      </div>
+
+      <div class="card s7">
+        <div class="hd"><h2>수집 기록</h2><span class="sub">최근 ${RUNS.length}건</span></div>
+        <div class="tablewrap" style="max-height:300px">
+          <table><thead><tr><th class="l">시작</th><th>상태</th><th class="l">종목</th><th>주기</th><th class="l">구간</th><th>행 수</th><th>소요</th></tr></thead>
+          <tbody>${RUNS.slice(0, 20).map(r => `<tr>
+            <td class="l">${fmtMD(r.startedAt)}</td>
+            <td><span class="badge ${r.status === 'done' ? 'st-done' : 'st-failed'}">${r.status === 'done' ? '완료' : '실패'}</span></td>
+            <td class="nm">${r.symbol}</td><td>${tfLabel(r.timeframe)}</td>
+            <td class="l">${fmtMD(r.from)} ~ ${fmtMD(r.to)}</td>
+            <td>${nf(r.rows)}</td><td>${r.took.toFixed(1)}초</td></tr>`).join('')}</tbody></table>
+        </div>
+      </div>
+
+      <div class="card s5">
+        <div class="hd"><h2>과거 채우기</h2><span class="sub">자동 탐지 · 빠진 구간</span></div>
+        <div class="bd">
+          <div class="mgrid three">
+            <div class="mbox"><div class="k">빠진 구간</div><div class="v">3</div></div>
+            <div class="mbox"><div class="k">채우는 중</div><div class="v">0</div></div>
+            <div class="mbox"><div class="k">마지막 탐지</div><div class="v">14분 전</div></div>
+          </div>
+          <table class="mtab" style="margin-top:9px">
+            <tr><td class="txt l">TSLA · 5분</td><td>10-31 09:30 ~ 10-31 16:00</td><td><button class="ghost sm" data-fill="1">채우기</button></td></tr>
+            <tr><td class="txt l">NVDA · 1분</td><td>11-03 14:00 ~ 11-03 15:20</td><td><button class="ghost sm" data-fill="2">채우기</button></td></tr>
+            <tr><td class="txt l">A · 1시간</td><td>10-28 ~ 10-29</td><td><button class="ghost sm" data-fill="3">채우기</button></td></tr>
+          </table>
+          <div class="note">채우기를 걸면 모듈에 명령이 전달되고, 끝나면 수집 기록에 남습니다.</div>
+        </div>
+      </div>
+    </div>`
+  page.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go))
+  page.querySelectorAll('[data-range]').forEach(b => b.onclick = () => { state.range = Number(b.dataset.range); render() })
+  page.querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { state.covOpen[b.dataset.cov] = !state.covOpen[b.dataset.cov]; render() })
+  page.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => {
+    b.textContent = '채우는 중…'; b.disabled = true
+    setTimeout(() => { b.textContent = '완료'; b.classList.add('on') }, 1400)
+  })
+  return page
+}
+function coverageRows(s, i){
+  const open = state.covOpen[s.symbol]
+  const late = i === 2
+  const head = `<tr data-cov="${s.symbol}">
+    <td class="nm"><span class="tw">${open ? '▾' : '▸'}</span>${s.symbol}</td>
+    <td class="l">봉 ${TIMEFRAMES.length}개</td>
+    <td><span class="opt ok">수집</span></td>
+    <td>${fmtDT(NOW - (s.kr ? 26000 : 63000))}</td>
+    <td>${late ? '1시간 12분' : '—'}</td><td>${nf(470 + i * 13)}</td>
+    <td><span class="badge ${late ? 'st-stopping' : 'st-stopped'}">${late ? '지연' : '장 마감'}</span></td></tr>`
+  if (!open) return head
+  const subs = TIMEFRAMES.map((tf, k) => `<tr class="sub-row"><td></td><td class="l">${tf.label}</td>
+    <td><span class="opt ${k < 5 ? 'ok' : 'off'}">${k < 5 ? '수집' : '안 함'}</span></td>
+    <td>${fmtDT(NOW - (s.kr ? 26000 : 63000) - k * 60)}</td><td>—</td><td>${nf(Math.round((470 + i*13) / (k+1)))}</td>
+    <td><span class="badge st-stopped">장 마감</span></td></tr>`).join('')
+  return head + subs
+}
+
+/* =====================================================================
+ * 5. 데이터 모듈
+ * =================================================================== */
+function renderDataModulePage(){
+  const st = { running:['정상','st-done'], stopped:['중지','st-stopped'], error:['오류','st-failed'] }[state.modStatus]
+  const page = el('div', 'page')
+  page.innerHTML = `
+    <header class="rhead">
+      <div><div class="crumb"><a data-go="#/research">연구 대시보드</a> › <a data-go="#/research/data">데이터</a> › 데이터 모듈</div>
+        <h1>데이터 모듈</h1><div class="sub">시장 데이터를 모으는 데이터 모듈 — 시작 · 중지 · 일정 · 버전 설치 · 수집 대상 · 실행 로그</div></div>
+      <div class="sp"></div>
+      <button class="ghost" data-go="#/research/data">← 데이터 현황</button>
+    </header>
+    <div class="grid">
+      <div class="card s12">
+        <div class="hd"><h2>데이터 모듈 · 시장 데이터 수집</h2>
+          <span class="badge ${st[1]}">${st[0]}</span><span class="chip num">v ${state.modVersion}</span>
+          <div class="sp"></div>
+          <div style="display:flex;gap:6px">
+            <button class="ghost" data-mod="start" ${state.modStatus === 'running' ? 'disabled' : ''}>시작</button>
+            <button class="ghost" data-mod="stop" ${state.modStatus === 'stopped' ? 'disabled' : ''}>중지</button>
+            <span style="width:1px;background:var(--line);margin:0 3px"></span>
+            <button class="ghost" data-mod="now">지금 수집</button>
+          </div></div>
+        <div class="bd">
+          <div class="mgrid three">
+            <div class="mbox"><div class="k">현재 버전</div><div class="v">${state.modVersion}</div></div>
+            <div class="mbox"><div class="k">마지막 응답</div><div class="v">28초 전</div></div>
+            <div class="mbox"><div class="k">마지막 수집</div><div class="v">8분 전</div></div>
+          </div>
+          <div id="modmsg" style="margin-top:10px">${state.modStatus === 'error' ? '<div class="err mono">batch 5m x6 failed (exit 1: some symbols failed)</div>' : ''}</div>
+        </div>
+      </div>
+
+      <div class="card s5">
+        <div class="hd"><h2>일정</h2><div class="sp"></div><button class="ghost sm" data-act="sched">일정 바꾸기</button></div>
+        <div class="bd">
+          <table class="mtab"><thead><tr><th class="l"></th><th>설정</th><th>적용</th></tr></thead>
+            <tr><td class="txt l">실시간 주기</td><td>${state.schedule.realtime}</td><td>${state.schedule.realtime}</td></tr>
+            <tr><td class="txt l">배치 실행</td><td>${state.schedule.batch}</td><td>${state.schedule.batch}</td></tr>
+            <tr><td class="txt l">시간대</td><td>${state.schedule.tz}</td><td>${state.schedule.tz}</td></tr>
+          </table>
+          <div class="note">“적용”은 실행기가 지금 쓰고 있다고 보고한 값입니다. 둘이 다르면 아직 반영되지 않은 것입니다.</div>
+        </div>
+      </div>
+
+      <div class="card s7">
+        <div class="hd"><h2>데이터 모듈 버전 · 설치</h2><span class="sub">${MODULE_VERSIONS.length}개</span><div class="sp"></div>
+          <span class="faint" style="font-size:11px">.zip · .tar.gz · 최대 50.0MB</span>
+          <button class="primary" style="height:28px" data-act="upload">압축 파일 올리기</button></div>
+        <div class="tablewrap" style="max-height:260px">
+          <table><thead><tr><th class="l">버전</th><th class="l">설치 상태</th><th class="l">파일</th><th class="l">해시 (SHA-256)</th><th>올린 사람</th><th>올린 시각</th><th></th></tr></thead>
+          <tbody>${MODULE_VERSIONS.map(v => `<tr>
+            <td class="nm">${v.v} ${v.v === state.modVersion ? '<span class="opt ok" style="margin-left:5px">사용 중</span>' : ''}</td>
+            <td class="l">${v.installed ? '<span class="badge st-done">설치됨</span>' : '<span class="badge st-queued">안 됨</span>'}</td>
+            <td class="l">${v.file}<span class="sub">${v.size}</span></td>
+            <td class="l">${v.hash}…</td><td>${v.by}</td><td>${fmtDT(v.at)}</td>
+            <td>${v.v === state.modVersion ? '' : v.installed ? `<button class="ghost sm" data-use="${v.v}">이 버전으로 전환</button>` : `<button class="ghost sm" data-install="${v.v}">설치</button>`}</td>
+          </tr>`).join('')}</tbody></table>
+        </div>
+      </div>
+
+      <div class="card s7">
+        <div class="hd"><h2>수집 대상</h2><span class="sub">나라 › 시장 › 종목</span><div class="sp"></div>
+          <button class="primary" style="height:28px" data-act="addtarget">＋ 수집 대상 추가</button></div>
+        <div class="browse">
+          <div class="groups">${targetTree()}</div>
+          <div class="tablewrap">
+            <table><thead><tr><th class="l">종목</th><th>수집</th><th>방식</th><th>마지막 캔들</th><th>최신성</th></tr></thead>
+            <tbody>${SYMBOLS.map((s, i) => `<tr>
+              <td class="nm">${s.symbol}<span class="sub">${s.exchange}</span></td>
+              <td><button class="opt ${state.targets[s.symbol] ? 'ok' : 'off'}" data-target="${s.symbol}">${state.targets[s.symbol] ? '수집' : '안 함'}</button></td>
+              <td><span class="opt ${s.mode === 'realtime' ? '' : 'off'}">${s.mode === 'realtime' ? '실시간' : '모아서'}</span></td>
+              <td>${fmtDT(NOW - (s.kr ? 26000 : 63000))}</td>
+              <td><span class="badge ${i === 2 ? 'st-stopping' : 'st-stopped'}">${i === 2 ? '지연' : '장 마감'}</span></td>
+            </tr>`).join('')}</tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card s5">
+        <div class="hd"><h2>실행 로그</h2><span class="sub">최근 20줄</span></div>
+        <div class="logbox">${esc(MODULE_LOG)}</div>
+      </div>
+    </div>`
+  page.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go))
+  page.querySelectorAll('[data-mod]').forEach(b => b.onclick = () => {
+    const a = b.dataset.mod
+    if (a === 'start') state.modStatus = 'running'
+    if (a === 'stop') state.modStatus = 'stopped'
+    if (a === 'now') { const m = page.querySelector('#modmsg'); m.innerHTML = '<div class="okline">지금 수집 명령을 보냈습니다 — 결과는 수집 기록에 남습니다.</div>'; return }
+    render()
+  })
+  page.querySelector('[data-act="sched"]').onclick = openScheduleModal
+  page.querySelector('[data-act="addtarget"]').onclick = openAddTargetModal
+  page.querySelector('[data-act="upload"]').onclick = () => alertCard('체험판에서는 파일을 올릴 수 없습니다. 실제 서비스에서는 압축을 검사하고 설치 로그를 남깁니다.')
+  page.querySelectorAll('[data-use]').forEach(b => b.onclick = () => { state.modVersion = b.dataset.use; render() })
+  page.querySelectorAll('[data-install]').forEach(b => b.onclick = () => { b.textContent = '설치 중…'; setTimeout(() => render(), 900) })
+  page.querySelectorAll('[data-target]').forEach(b => b.onclick = () => { state.targets[b.dataset.target] = !state.targets[b.dataset.target]; render() })
+  page.querySelectorAll('[data-tree]').forEach(b => b.onclick = () => { state.treeOpen[b.dataset.tree] = !state.treeOpen[b.dataset.tree]; render() })
+  return page
+}
+function targetTree(){
+  const byCountry = { KR:{ label:'한국', markets:{} }, US:{ label:'미국', markets:{} } }
+  SYMBOLS.forEach(s => {
+    const c = byCountry[s.country]
+    ;(c.markets[s.exchange] = c.markets[s.exchange] || []).push(s)
+  })
+  return Object.entries(byCountry).map(([code, c]) => {
+    const open = state.treeOpen[code]
+    const n = Object.values(c.markets).flat().length
+    return `<button class="lv1" data-tree="${code}"><span class="tw">${open ? '▾' : '▸'}</span>${c.label}<span class="c">${n}</span></button>` +
+      (open ? Object.entries(c.markets).map(([m, list]) =>
+        `<button class="lv2">${m}<span class="c">${list.length}</span></button>` +
+        list.map(s => `<button class="lv3"><span class="dot" style="background:var(${state.targets[s.symbol] ? '--ok' : '--faint'})"></span>${s.symbol}</button>`).join('')
+      ).join('') : '')
+  }).join('')
+}
+
+/* =====================================================================
+ * 6. 학습 모듈 (내 모듈)
+ * =================================================================== */
+function renderMyModulePage(){
+  const m = state.myModule
+  const page = el('div', 'page')
+  page.innerHTML = `
+    <header class="rhead">
+      <div><div class="crumb"><a data-go="#/research/experiments">학습</a> › 학습 모듈</div>
+        <h1>학습 모듈</h1><div class="sub">계정별로 올리는 내 코드 — 데이터 모듈이 모은 시장 데이터를 쓴다. 상태 · 버전 · 로그</div></div>
+    </header>
+    <div class="grid">
+      <div class="card s7">
+        <div class="hd"><h2>내 학습 모듈</h2>
+          <span class="badge ${m.installed ? 'st-done' : 'st-queued'}">${m.installed ? '설치됨' : '설치 안 됨'}</span>
+          <span class="badge ${m.enabled ? 'st-done' : 'st-stopped'}">${m.enabled ? '사용 중' : '사용 안 함'}</span>
+          <div class="sp"></div>
+          <div style="display:flex;gap:6px">
+            <button class="ghost" data-my="start" ${m.installed ? '' : 'disabled'}>시작</button>
+            <button class="ghost" data-my="stop">중지</button>
+            <button class="ghost" data-my="run" ${m.installed ? '' : 'disabled'}>지금 실행</button>
+          </div></div>
+        <div class="bd">
+          ${m.installed ? '' : '<div class="empty tight">설치된 버전이 없습니다</div>'}
+          <div class="mgrid three">
+            <div class="mbox"><div class="k">현재 버전</div><div class="v">${m.installed ? '0.1.0' : '—'}</div></div>
+            <div class="mbox"><div class="k">마지막 응답</div><div class="v">${m.installed ? '12초 전' : '—'}</div></div>
+            <div class="mbox"><div class="k">저장 위치</div><div class="v">users/21</div></div>
+          </div>
+          ${m.installed ? '' : '<div class="warnband" style="margin-top:10px">관리자가 이 모듈을 사용 안 함으로 두었습니다. 중지만 할 수 있습니다.</div>'}
+        </div>
+      </div>
+
+      <div class="card s5">
+        <div class="hd"><h2>모듈 템플릿 내려받기</h2><span class="chip num">v0.1.0</span><div class="sp"></div>
+          <button class="primary" style="height:28px" data-act="tpl">↓ 압축 파일 받기</button></div>
+        <div class="bd">
+          <ol class="steps">
+            <li>받아서 <code>experiment_module/strategy.py</code>를 고칩니다</li>
+            <li><code>module.toml</code>의 version을 올립니다 — 같은 버전은 두 번 못 올립니다</li>
+            <li>다시 압축합니다. <code>module.toml</code>이 압축 맨 위에 있어야 합니다</li>
+            <li>아래 “압축 파일 올리기”로 올리면 설치가 시작됩니다</li>
+          </ol>
+          <div class="note">데이터는 템플릿의 <code>db.read_candles()</code>로 읽습니다 — 바깥에서 직접 받지 않습니다. 결과는 <code>run.metric()</code> · <code>run.table()</code>로 남기면 학습 결과 화면에 나옵니다.</div>
+        </div>
+      </div>
+
+      <div class="card s7">
+        <div class="hd"><h2>버전 · 설치</h2><span class="sub">${m.installed ? '1개' : '0개'}</span><div class="sp"></div>
+          <span class="faint" style="font-size:11px">.zip · .tar.gz · 최대 50.0MB</span>
+          <button class="primary" style="height:28px" data-act="upload">압축 파일 올리기</button></div>
+        ${m.installed ? `<div class="tablewrap"><table>
+            <thead><tr><th class="l">버전</th><th class="l">설치 상태</th><th class="l">파일</th><th class="l">해시</th><th>올린 시각</th></tr></thead>
+            <tbody><tr><td class="nm">0.1.0 <span class="opt ok">사용 중</span></td><td class="l"><span class="badge st-done">설치됨</span></td>
+              <td class="l">my-strategy-0.1.0.zip<span class="sub">8.4KB</span></td><td class="l">2b9f41c0e7aa…</td><td>${fmtDT(NOW - 600)}</td></tr></tbody>
+          </table></div>`
+        : '<div class="empty">올린 버전이 없습니다<div class="faint">“압축 파일 올리기”로 첫 버전을 올려 보세요</div></div>'}
+      </div>
+
+      <div class="card s5">
+        <div class="hd"><h2>실행 로그</h2><span class="sub">최근</span></div>
+        <div class="logbox">${m.installed
+          ? esc('[12:20:01] install ok (module.toml v0.1.0)\n[12:20:02] import strategy.py\n[12:20:03] db.read_candles(SPY, 15m, 2024-01-01~) → 64,210 rows\n[12:20:09] run.metric(test_auc=0.6412)\n[12:20:09] done in 8.4s')
+          : '<span class="muted">설치된 버전이 없어 로그가 없습니다</span>'}</div>
+      </div>
+    </div>`
+  page.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go))
+  page.querySelector('[data-act="tpl"]').onclick = () => alertCard('체험판에서는 파일을 내려받지 않습니다. 실제 서비스에서는 템플릿 압축을 바로 받습니다.')
+  page.querySelector('[data-act="upload"]').onclick = () => {
+    state.myModule = { installed:true, enabled:true }
+    render()
+    alertCard('체험판이라 올린 척만 했습니다 — 설치된 모습으로 바뀝니다.')
+  }
+  page.querySelectorAll('[data-my]').forEach(b => b.onclick = () => {
+    if (b.dataset.my === 'stop') state.myModule.enabled = false
+    if (b.dataset.my === 'start') state.myModule.enabled = true
+    render()
+  })
+  return page
+}
+
+/* =====================================================================
+ * 모달
+ * =================================================================== */
+function modal({ title, body, footer, wide }){
+  const host = $('#modalhost')
+  const wrap = el('div', 'modalwrap')
+  wrap.innerHTML = `<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">
+    <div class="mh"><h2>${title}</h2><button class="x" data-close>${svg(I.close, 15)}</button></div>
+    <div class="mb">${body}</div>
+    ${footer ? `<div class="mf">${footer}</div>` : ''}
+  </div>`
+  const close = () => host.innerHTML = ''
+  wrap.onpointerdown = e => { if (e.target === wrap) close() }
+  wrap.querySelector('[data-close]').onclick = close
+  document.addEventListener('keydown', function esc2(e){ if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc2) } })
+  host.innerHTML = ''
+  host.appendChild(wrap)
+  return { wrap, close }
+}
+function alertCard(msg){
+  const { wrap, close } = modal({ title:'체험판 안내', body:`<div class="note" style="padding:0">${msg}</div>`, footer:'<button class="primary" data-ok>확인</button>' })
+  wrap.querySelector('[data-ok]').onclick = close
+}
+function openNewExperiment(){
+  const { wrap, close } = modal({
+    title:'새 학습', wide:true,
+    body:`<div class="fgrid">
+      <div class="field"><label>이름</label><input id="nx-name" value="lstm-spy-15m-v6" /></div>
+      <div class="field"><label>모델</label><input id="nx-model" value="lstm" /><span class="hint">파이프라인 담당자와 합의한 값</span></div>
+      <div class="field"><label>종목</label><select id="nx-sym">${SYMBOLS.map(s => `<option>${s.symbol}</option>`).join('')}</select></div>
+      <div class="field"><label>주기</label><select id="nx-tf">${TIMEFRAMES.map(t => `<option value="${t.code}">${t.label}</option>`).join('')}</select></div>
+      <div class="field"><label>학습 시작일</label><input id="nx-from" type="date" value="2024-01-01" /></div>
+      <div class="field"><label>학습 종료일</label><input id="nx-to" type="date" value="2026-09-30" /><span class="hint">UTC 0시 기준, 종료일은 포함하지 않음</span></div>
+      <div class="field full"><label>설정 (config JSON)</label><textarea id="nx-cfg" rows="7">{
+  "seq_len": 64,
+  "hidden": 128,
+  "layers": 2,
+  "lr": 0.0005,
+  "batch_size": 128,
+  "epochs": 40
+}</textarea><span class="hint" id="nx-err">JSON 객체인지만 확인합니다. 내용은 파이프라인이 해석합니다</span></div>
+    </div>`,
+    footer:'<button class="ghost" data-close2>취소</button><button class="primary" data-ok>학습 만들기</button>',
+  })
+  wrap.querySelector('[data-close2]').onclick = close
+  wrap.querySelector('[data-ok]').onclick = () => {
+    let cfg
+    try { cfg = JSON.parse(wrap.querySelector('#nx-cfg').value) }
+    catch { const h = wrap.querySelector('#nx-err'); h.className = 'ferr'; h.textContent = 'JSON 형식이 아닙니다'; return }
+    const name = wrap.querySelector('#nx-name').value.trim() || 'untitled'
+    state.extra.unshift({
+      id: 'exp-' + Math.random().toString(16).slice(2, 10),
+      name, modelType: wrap.querySelector('#nx-model').value.trim() || 'lstm',
+      symbol: wrap.querySelector('#nx-sym').value, timeframe: wrap.querySelector('#nx-tf').value,
+      status:'queued', progress:0, workerId:null, createdAt: NOW, startedAt:null, finishedAt:null,
+      trainFrom: wrap.querySelector('#nx-from').value, trainTo: wrap.querySelector('#nx-to').value,
+      dataRows: 0, checkpointPath:null, error:null, finalMetrics:null, config: cfg,
+      loss: Array.from({ length: 40 }, (_, k) => 0.09 * Math.exp(-k / 11) + 0.015),
+    })
+    close(); go('#/research/experiments'); render()
+  }
+}
+function openScheduleModal(){
+  const { wrap, close } = modal({
+    title:'일정 바꾸기',
+    body:`<div class="fgrid">
+      <div class="field"><label>실시간 주기</label><select id="sc-rt">${['1분','5분','15분'].map(v => `<option ${v === state.schedule.realtime ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      <div class="field"><label>배치 실행 시각</label><input id="sc-b" type="time" value="${state.schedule.batch}" /></div>
+      <div class="field full"><label>시간대</label><select id="sc-tz"><option>Asia/Seoul</option><option>UTC</option><option>America/New_York</option></select></div>
+    </div><div class="note">저장하면 실행기에 명령이 전달되고, 실행기가 받아들이면 “적용” 칸이 바뀝니다.</div>`,
+    footer:'<button class="ghost" data-close2>취소</button><button class="primary" data-ok>저장</button>',
+  })
+  wrap.querySelector('#sc-tz').value = state.schedule.tz
+  wrap.querySelector('[data-close2]').onclick = close
+  wrap.querySelector('[data-ok]').onclick = () => {
+    state.schedule = { realtime: wrap.querySelector('#sc-rt').value, batch: wrap.querySelector('#sc-b').value, tz: wrap.querySelector('#sc-tz').value }
+    close(); render()
+  }
+}
+function openAddTargetModal(){
+  const pool = [
+    { symbol:'035720.KS', name:'카카오', exchange:'KOSPI', country:'KR' },
+    { symbol:'000660.KS', name:'SK하이닉스', exchange:'KOSPI', country:'KR' },
+    { symbol:'MSFT', name:'Microsoft', exchange:'NASDAQ', country:'US' },
+    { symbol:'AMZN', name:'Amazon', exchange:'NASDAQ', country:'US' },
+    { symbol:'^KS11', name:'코스피 지수', exchange:'KRX', country:'KR' },
+  ]
+  const { wrap, close } = modal({
+    title:'수집 대상 추가', wide:true,
+    body:`<div style="display:flex;gap:8px;margin-bottom:10px">
+      <div class="ex-search" style="flex:1">${svg(I.search, 13)}<input id="at-q" placeholder="삼성전자 · Apple · 005930 · ^KS11" style="width:100%" /></div>
+      <select class="ghost" id="at-c" style="height:31px;padding:0 9px"><option value="">전체</option><option value="KR">한국</option><option value="US">미국</option></select>
+    </div>
+    <div class="tablewrap" style="max-height:260px"><table id="at-t"><thead><tr><th class="l">종목</th><th class="l">시장</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="note">종목 카탈로그에서 찾아 바로 켭니다. 켜면 그날부터 쌓입니다.</div>`,
+    footer:'<button class="primary" data-close2>닫기</button>',
+  })
+  const tb = wrap.querySelector('#at-t tbody')
+  const draw = () => {
+    const q = wrap.querySelector('#at-q').value.trim().toLowerCase()
+    const c = wrap.querySelector('#at-c').value
+    const rows = pool.filter(p => (!c || p.country === c) && (!q || p.symbol.toLowerCase().includes(q) || p.name.includes(q)))
+    tb.innerHTML = rows.length ? rows.map(p => `<tr><td class="nm">${p.symbol}<span class="sub">${p.name}</span></td>
+      <td class="l">${p.exchange}</td><td><button class="ghost sm" data-add="${p.symbol}">추가</button></td></tr>`).join('')
+      : '<tr><td colspan="3" class="txt l muted" style="text-align:center;padding:24px">검색 결과가 없습니다</td></tr>'
+    tb.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { b.textContent = '추가됨'; b.disabled = true })
+  }
+  wrap.querySelector('#at-q').oninput = draw
+  wrap.querySelector('#at-c').onchange = draw
+  wrap.querySelector('[data-close2]').onclick = close
+  draw()
+}
+function openPasswordModal(){
+  const { wrap, close } = modal({
+    title:'비밀번호 변경',
+    body:`<div class="field"><label>지금 비밀번호</label><input type="password" /></div>
+      <div class="field" style="margin-top:11px"><label>새 비밀번호</label><input type="password" /><span class="hint">8자 이상, 영문과 숫자를 섞습니다</span></div>
+      <div class="field" style="margin-top:11px"><label>새 비밀번호 확인</label><input type="password" /></div>`,
+    footer:'<button class="ghost" data-close2>취소</button><button class="primary" data-ok>바꾸기</button>',
+  })
+  wrap.querySelector('[data-close2]').onclick = close
+  wrap.querySelector('[data-ok]').onclick = () => { close(); alertCard('체험판이라 실제로 바뀌지는 않습니다.') }
+}
+function openNoticeModal(){
+  modal({
+    title:'오픈소스 고지', wide:true,
+    body:`<div class="notice">
+      <p>이 서비스는 아래 오픈소스를 씁니다. 체험판에 포함된 목록은 실제 서비스와 같습니다.</p>
+      <pre>React 18 · MIT
+TypeScript · Apache-2.0
+Vite · MIT
+TanStack Query · MIT
+Zustand · MIT
+lightweight-charts · Apache-2.0 (TradingView)
+Spring Boot · Apache-2.0
+jOOQ · Apache-2.0
+Lettuce (Redis) · Apache-2.0</pre>
+      <p class="muted">차트 엔진은 TradingView Lightweight Charts™를 씁니다.</p>
+    </div>`,
+  })
+}
+
+/* ---------- 시계 ---------- */
+setInterval(() => {
+  const c = $('#clock'); if (!c) return
+  const d = new Date()
+  c.textContent = `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} · UTC+9`
+}, 1000)
+window.addEventListener('resize', () => { if (state.route === '#/chart') drawChart() })
+
+/* ---------- 시작 ---------- */
+state.route = location.hash && ROUTES[location.hash] ? location.hash : '#/chart'
+if (!location.hash) location.hash = '#/chart'
+setTheme('dark')
+</script>
+</body>
+</html>
